@@ -4,6 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
+
+    <script>
+        try {
+            var saved = localStorage.getItem("theme");
+            if (saved) document.documentElement.dataset.theme = saved;
+        } catch (e) {}
+    </script>
+
     <link rel="stylesheet" href="style.css">
     <script src="client.js" defer></script>
 </head>
@@ -13,6 +21,7 @@
             <p class="name">Library of something</p>
             <p class="short-description">Why am i here</p>
         </div>
+        <button class="theme-toggle" id="themeToggle" aria-label="Đổi giao diện sáng/tối">🌙</button>
     </header>
 
     <section class="featured">
@@ -22,7 +31,7 @@
                 <div class="cover-placeholder"></div>
                 <p class="title">Book Title One</p>
             </div>
-                <div class="featured-card">
+            <div class="featured-card">
                 <div class="cover-placeholder"></div>
                 <p class="title">Book Title Two</p>
             </div>
@@ -42,23 +51,23 @@
             <div class="category-tree">
                 <div class="category-tree-scroll">
                     <details>
-                        <summary><button class="category-button">A</button></summary>
+                        <summary><button class="category-button">Cấp 2</button></summary>
                         <ul>
                             <li>
                                 <details>
-                                    <summary><button class="category-button">AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA</button></summary>
+                                    <summary><button class="category-button">Lớp 8</button></summary>
                                     <ul>
-                                        <li class="leaf"><button class="category-button">AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA</button></li>
-                                        <li class="leaf"><button class="category-button">A</button></li>
+                                        <li class="leaf"><button class="category-button" data-category="test-1">SGK</button></li>
+                                        <li class="leaf"><button class="category-button" data-category="test-2">SBT</button></li>
                                     </ul>
                                 </details>
                             </li>
                             <li>
                                 <details>
-                                    <summary><button class="category-button">A</button></summary>
+                                    <summary><button class="category-button">Lớp 9</button></summary>
                                     <ul>
-                                        <li class="leaf"><button class="category-button">A</button></li>
-                                        <li class="leaf"><button class="category-button">A</button></li>
+                                        <li class="leaf"><button class="category-button" data-category="t-1">SGK</button></li>
+                                        <li class="leaf"><button class="category-button" data-category="t-2">SBT</button></li>
                                     </ul>
                                 </details>
                             </li>
@@ -69,7 +78,7 @@
 
             <div class="results-container">
                 <input type="text" class="search-bar" placeholder="Search by title...">
-            
+
                 <div class="search-results">
                     <div class="search-result">
                         <div class="cover-placeholder"></div>
@@ -80,8 +89,8 @@
         </div>
     </section>
 
-  <main class="main-content">
-    
-  </main>
+    <main class="main-content">
+
+    </main>
 </body>
 </html>
