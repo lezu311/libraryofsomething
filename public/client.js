@@ -16,24 +16,38 @@ document.querySelectorAll('summary .category-button').forEach(button => {
 });
 
 const booksByCategory = {
-    'test-1': ['Toán', 'Sách A2', 'Sách A3'],
-    'test-2': ['Sách B1', 'Sách B2'],
-    't-1': ['Sách C1'],
-    't-2': ['Sách D1', 'Sách D2', 'Sách D3', 'Sách D4']
+    'test-1': [
+        { id: 'a1', title: 'Toán' },
+        { id: 'a2', title: 'Sách A2' },
+        { id: 'a3', title: 'Sách A3' }
+    ],
+    'test-2': [
+        { id: 'b1', title: 'Sách B1' },
+        { id: 'b2', title: 'Sách B2' }
+    ],
+    't-1': [
+        { id: 'c1', title: 'Sách C1' }
+    ],
+    't-2': [
+        { id: 'd1', title: 'Sách D1' },
+        { id: 'd2', title: 'Sách D2' },
+        { id: 'd3', title: 'Sách D3' },
+        { id: 'd4', title: 'Sách D4' }
+    ]
 };
 
 const resultsBox = document.querySelector('.search-results');
 
 function showResults(categoryId) {
-    const titles = booksByCategory[categoryId] || [];
+    const books = booksByCategory[categoryId] || [];
     resultsBox.innerHTML = '';
 
-    if (titles.length === 0) {
+    if (books.length === 0) {
         resultsBox.textContent = 'Chưa có sách nào trong mục này.';
         return;
     }
 
-    titles.forEach(title => {
+    books.forEach(book => {
         const card = document.createElement('div');
         card.className = 'search-result';
 
@@ -42,9 +56,14 @@ function showResults(categoryId) {
 
         const name = document.createElement('p');
         name.className = 'title';
-        name.textContent = title;
+        name.textContent = book.title;
 
-        card.append(cover, name);
+        const viewBtn = document.createElement('a');
+        viewBtn.className = 'view-button';
+        viewBtn.textContent = 'Xem sách';
+        viewBtn.href = `bookview/view.html?id=${encodeURIComponent(book.id)}`;
+
+        card.append(cover, name, viewBtn);
         resultsBox.appendChild(card);
     });
 }
