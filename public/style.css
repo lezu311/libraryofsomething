@@ -31,10 +31,26 @@ body {
     color: var(--text-header);
 }
 
-/* khối trống bên phải, rộng bằng logo để tiêu đề nằm giữa */
-.site-header::after {
-    content: "";
+/* khối bên phải, rộng bằng logo để tiêu đề nằm giữa */
+.header-actions {
     flex: 1;
+    display: flex;
+    justify-content: flex-end;
+    align-self: flex-start;
+}
+
+.login-link {
+    padding: 8px 18px;
+    border: 2px solid var(--text-header);
+    border-radius: 20px;
+    color: var(--text-header);
+    font-weight: bold;
+    text-decoration: none;
+}
+
+.login-link:hover {
+    background-color: var(--text-header);
+    color: var(--accent);
 }
 
 .logo {
