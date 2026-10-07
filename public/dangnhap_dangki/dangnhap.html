@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng nhập - BookShare</title>
+
+    <link rel="stylesheet" href="dungchung.css">
+    <script src="dangnhap.js" defer></script>
+</head>
+<body>
+    <header class="site-header">
+        <div class="logo">
+            <div class="image">
+                <img class="logo1" src="logoTHCSQN.png" alt="THCS quang ninh">
+                <p class="logoname"> THCS Quảng Ninh</p>
+            </div>
+        </div>
+        <div class="desc">
+            <p class="name">BookShare - Sách truyền tay</p>
+            <p class="short-description">Bộ sách kết nối tri thức và cuộc sống</p>
+        </div>
+    </header>
+
+    <main class="login-page">
+        <div class="login-card">
+            <h2>Đăng nhập</h2>
+
+            <form id="login-form" class="auth-form" novalidate>
+                <label for="login-username">Tên đăng nhập</label>
+                <input type="text" id="login-username" autocomplete="username" placeholder="Nhập tên đăng nhập">
+
+                <label for="login-password">Mật khẩu</label>
+                <div class="password-wrap">
+                    <input type="password" id="login-password" autocomplete="current-password" placeholder="Nhập mật khẩu">
+                    <button type="button" class="toggle-password" data-target="login-password">Hiện</button>
+                </div>
+
+                <p class="form-message" id="login-message" role="alert"></p>
+                <button type="submit" class="submit-button">Đăng nhập</button>
+            </form>
+
+            <a class="back-link" href="index.html">← Về trang chủ</a>
+        </div>
+    </main>
+</body>
+</html>
