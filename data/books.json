@@ -1,0 +1,66 @@
+[
+  {
+    "id": 1,
+    "title": "Dế Mèn Phiêu Lưu Ký",
+    "author": "Tô Hoài",
+    "category": "Literature",
+    "description": "The adventures of a young cricket who leaves home to see the world and learns some hard lessons about pride and friendship.",
+    "cover": null
+  },
+  {
+    "id": 2,
+    "title": "A Brief History of Time",
+    "author": "Stephen Hawking",
+    "category": "Science",
+    "description": "An introduction to black holes, the Big Bang and the nature of time, written for readers without a physics degree.",
+    "cover": null
+  },
+  {
+    "id": 3,
+    "title": "Basic Algebra for Grade 8",
+    "author": "School Textbook Team",
+    "category": "Math",
+    "description": "Equations, inequalities and word problems with worked examples and practice exercises.",
+    "cover": null
+  },
+  {
+    "id": 4,
+    "title": "The Little Prince",
+    "author": "Antoine de Saint-Exupéry",
+    "category": "Literature",
+    "description": "A pilot stranded in the desert meets a small prince who has travelled from planet to planet.",
+    "cover": null
+  },
+  {
+    "id": 5,
+    "title": "Vietnam: A Short History",
+    "author": "Various Authors",
+    "category": "History",
+    "description": "A quick walk through the main periods of Vietnamese history, from the Hùng Kings to modern times.",
+    "cover": null
+  },
+  {
+    "id": 6,
+    "title": "Cosmos",
+    "author": "Carl Sagan",
+    "category": "Science",
+    "description": "A tour of the universe, from the smallest atoms to the largest galaxies.",
+    "cover": null
+  },
+  {
+    "id": 7,
+    "title": "Learn Lua in 30 Days",
+    "author": "Test Author",
+    "category": "Programming",
+    "description": "A made-up beginner book used to test the search bar. Searching for 'lua' should find this one.",
+    "cover": null
+  },
+  {
+    "id": 8,
+    "title": "Cooking for Beginners",
+    "author": "Test Author",
+    "category": "Life Skills",
+    "description": "Another made-up book. Its title contains the word 'for', so searching 'for' should match several books.",
+    "cover": null
+  }
+]

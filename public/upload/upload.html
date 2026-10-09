@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add a book - BookShare</title>
+    <link rel="stylesheet" href="../bookview/style.css">
+    <link rel="stylesheet" href="upload.css">
+    <script src="../bookview/client.js" defer></script>
+    <script src="upload.js" defer></script>
+</head>
+<body>
+    <header class="site-header">
+        <div class="logo">
+            <div class="image">
+                <img class="logo1" src="../bookview/logoTHCSQN.png" alt="THCS quang ninh">
+                <p class="logoname"> THCS Quảng Ninh</p>
+            </div>
+        </div>
+        <div class="desc">
+            <p class="name">BookShare - Sách truyền tay</p>
+            <p class="short-description">Bộ sách kết nối tri thức và cuộc sống</p>
+        </div>
+        <button class="theme-toggle" id="themeToggle" aria-label="Đổi giao diện sáng/tối">🌙</button>
+    </header>
+
+    <section class="book-view">
+        <form id="upload-form" class="upload-card">
+            <h2>Add a book</h2>
+
+            <label for="title">Title</label>
+            <input type="text" id="title" name="title" required>
+
+            <label for="author">Author</label>
+            <input type="text" id="author" name="author">
+
+            <label for="category">Category</label>
+            <input type="text" id="category" name="category">
+
+            <label for="description">Description</label>
+            <textarea id="description" name="description" rows="5"></textarea>
+
+            <label for="cover">Cover (PNG or JPG, max 1 MB)</label>
+            <input type="file" id="cover" name="cover" accept="image/png, image/jpeg">
+            <img id="cover-preview" alt="" hidden>
+
+            <button type="submit" class="submit-button">Save book</button>
+            <p id="form-message" role="status"></p>
+        </form>
+    </section>
+</body>
+</html>

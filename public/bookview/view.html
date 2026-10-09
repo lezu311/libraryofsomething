@@ -4,8 +4,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="client.js" defer></script>
+    <script src="book.js" defer></script>
 </head>
 <body>
-    <pre>yo twin\n</pre>
+    <header class="site-header">
+        <div class="logo">
+            <div class="image">
+                <img class="logo1" src="logoTHCSQN.png" alt="THCS quang ninh">
+                <p class="logoname"> THCS Quảng Ninh</p> 
+            </div>
+        </div>
+        <div class="desc">
+            <p class="name">BookShare - Sách truyền tay</p>
+            <p class="short-description">Bộ sách kết nối tri thức và cuộc sống</p>
+        </div>
+        <button class="theme-toggle" id="themeToggle" aria-label="Đổi giao diện sáng/tối">🌙</button>
+    </header>
+
+    <section class="book-view">
+        <div id="book-preview">
+            <div class="book-cover">
+                <img src="cover.png" alt="Book cover">
+            </div>
+            <div class="book-info">
+                <h2 class="book-title">Book Title</h2>
+                <p class="book-author">Author: Someone</p>
+                <p class="book-category">Category: Grade 6 / Literature</p>
+                <p class="book-description">A short description of the book goes here.</p>
+            </div>
+        </div>
+    </section>
 </body>
 </html>
