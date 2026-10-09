@@ -5,13 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
 
-    <script>
-        try {
-            var saved = localStorage.getItem("theme");
-            if (saved) document.documentElement.dataset.theme = saved;
-        } catch (e) {}
-    </script>
-
     <link rel="stylesheet" href="style.css">
     <script src="search.js" defer></script>
     <script src="client.js" defer></script>
@@ -28,7 +21,9 @@
             <p class="name">BookShare - Sách truyền tay</p>
             <p class="short-description">Bộ sách kết nối tri thức và cuộc sống</p>
         </div>
-        <button class="theme-toggle" id="themeToggle" aria-label="Đổi giao diện sáng/tối">🌙</button>
+        <div class="header-actions">
+            <a class="login-link" href="dangnhap_dangki/dangki.html">Đăng ký</a>
+        </div>
     </header>
 
     <section class="featured">
@@ -75,6 +70,14 @@
                 <input type="text" class="search-bar" placeholder="Search by title...">
 
                 <div class="search-results">
+<<<<<<< HEAD
+=======
+                    <div class="search-result">
+                        <div class="cover-placeholder"></div>
+                        <p class="title">Search Result One</p>
+                        <a class="view-button" href="bookview/view.html?id=demo">Xem sách</a>
+                    </div>
+>>>>>>> e70c918d97a48aba8ae747e52457bf8eed7f805a
                 </div>
             </div>
         </div>

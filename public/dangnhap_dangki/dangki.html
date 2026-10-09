@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng ký - BookShare</title>
+
+    <link rel="stylesheet" href="dungchung.css">
+    <script src="dangki.js" defer></script>
+</head>
+<body>
+    <header class="site-header">
+        <div class="logo">
+            <div class="image">
+                <img class="logo1" src="logoTHCSQN.png" alt="THCS quang ninh">
+                <p class="logoname"> THCS Quảng Ninh</p>
+            </div>
+        </div>
+        <div class="desc">
+            <p class="name">BookShare - Sách truyền tay</p>
+            <p class="short-description">Bộ sách kết nối tri thức và cuộc sống</p>
+        </div>
+    </header>
+
+    <main class="login-page">
+        <div class="login-card">
+            <h2>Đăng ký</h2>
+
+            <form id="register-form" class="auth-form" novalidate>
+                <label for="reg-fullname">Họ và tên</label>
+                <input type="text" id="reg-fullname" autocomplete="name" placeholder="Nguyễn Văn A">
+
+                <label for="reg-username">Tên đăng nhập</label>
+                <input type="text" id="reg-username" autocomplete="username" placeholder="Ít nhất 4 ký tự">
+
+                <label for="reg-password">Mật khẩu</label>
+                <div class="password-wrap">
+                    <input type="password" id="reg-password" autocomplete="new-password" placeholder="Ít nhất 6 ký tự">
+                    <button type="button" class="toggle-password" data-target="reg-password">Hiện</button>
+                </div>
+
+                <label for="reg-password2">Nhập lại mật khẩu</label>
+                <div class="password-wrap">
+                    <input type="password" id="reg-password2" autocomplete="new-password" placeholder="Nhập lại mật khẩu">
+                    <button type="button" class="toggle-password" data-target="reg-password2">Hiện</button>
+                </div>
+
+                <p class="form-message" id="register-message" role="alert"></p>
+                <button type="submit" class="submit-button">Tạo tài khoản</button>
+
+                <p class="switch-text">Đã có tài khoản? <a href="dangnhap.html">Đăng nhập</a></p>
+            </form>
+
+            <a class="back-link" href="../index.html">← Về trang chủ</a>
+        </div>
+    </main>
+</body>
+</html>

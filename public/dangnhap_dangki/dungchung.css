@@ -1,0 +1,197 @@
+:root {
+    color-scheme: light;
+    --bg-body: #f2f4f8;
+    --bg-card: #ffffff;
+    --bg-header: #2f4f7f;
+    --text: #1a1a1a;
+    --text-header: #ffffff;
+    --muted: #666666;
+    --accent: #2f4f7f;
+    --accent-text: #ffffff;
+    --error: #c0392b;
+    --success: #1e8449;
+    --border: #d5dae3;
+    --shadow: rgba(0, 0, 0, 0.15);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    min-height: 100vh;
+    background-color: var(--bg-body);
+    color: var(--text);
+}
+
+/* ===== THANH TRÊN (giống trang chủ) ===== */
+.site-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 30px;
+    padding-bottom: 0;
+    background-color: var(--bg-header);
+    color: var(--text-header);
+}
+
+/* khối trống bên phải, rộng bằng logo để tiêu đề nằm giữa */
+.site-header::after {
+    content: "";
+    flex: 1;
+}
+
+.logo {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    font-weight: bold;
+}
+
+.desc {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.desc .name {
+    font-size: 2rem;
+    margin-bottom: 0;
+}
+
+.desc .short-description {
+    font-size: 1.1rem;
+    margin-bottom: 25px;
+}
+
+.logo .image .logo1 {
+    max-width: 100%;
+    height: auto;
+    width: 60px;
+}
+
+.logo .image {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* ===== KHUNG ĐĂNG NHẬP ===== */
+.login-page {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 30px 20px;
+}
+
+.login-card {
+    width: 100%;
+    max-width: 400px;
+    background-color: var(--bg-card);
+    border-radius: 12px;
+    box-shadow: 0 2px 12px var(--shadow);
+    padding: 30px;
+    text-align: center;
+}
+
+.login-card h2 {
+    margin: 0 0 20px 0;
+    color: var(--accent);
+}
+
+.auth-form {
+    text-align: left;
+}
+
+label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.9rem;
+    font-weight: bold;
+}
+
+input {
+    width: 100%;
+    padding: 10px 12px;
+    margin-bottom: 15px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 1rem;
+}
+
+input:focus {
+    outline: 2px solid var(--accent);
+    border-color: transparent;
+}
+
+.password-wrap {
+    position: relative;
+}
+
+.password-wrap input {
+    padding-right: 60px;
+}
+
+.toggle-password {
+    position: absolute;
+    top: 0;
+    right: 8px;
+    height: 42px;
+    border: none;
+    background: none;
+    color: var(--accent);
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.form-message {
+    min-height: 1.2em;
+    margin: 0 0 10px 0;
+    color: var(--error);
+    font-size: 0.9rem;
+}
+
+.form-message.success {
+    color: var(--success);
+}
+
+.submit-button {
+    width: 100%;
+    padding: 11px;
+    border: none;
+    border-radius: 20px;
+    background-color: var(--accent);
+    color: var(--accent-text);
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+.submit-button:hover {
+    opacity: 0.85;
+}
+
+.submit-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.back-link {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.back-link:hover {
+    text-decoration: underline;
+}
+
+.back-link {
+    display: inline-block;
+    margin-top: 20px;
+    font-size: 0.9rem;
+}
