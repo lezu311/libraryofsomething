@@ -32,6 +32,10 @@ registerForm.addEventListener('submit', async (event) => {
         setMessage('Tên đăng nhập phải có ít nhất 4 ký tự.');
         return;
     }
+    if (!/^[A-Za-z0-9_]+$/.test(username)) {
+        setMessage('Tên đăng nhập chỉ gồm chữ không dấu, số và dấu gạch dưới.');
+        return;
+    }
     if (password.length < 6) {
         setMessage('Mật khẩu phải có ít nhất 6 ký tự.');
         return;
@@ -54,12 +58,12 @@ registerForm.addEventListener('submit', async (event) => {
         const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-            setMessage(data.message || 'Không tạo được tài khoản. Tên đăng nhập có thể đã tồn tại.');
+            setMessage(data.message || 'không tạo được tài khoản');
             return;
         }
 
-        setMessage('Đăng ký thành công! Đang chuyển sang trang đăng nhập...', true);
-        setTimeout(() => { window.location.href = 'login.html'; }, 1500);
+        setMessage('Đăng ký thành công!', true);
+        setTimeout(() => { window.location.href = 'dangnhap.html'; }, 1500);
     } catch (err) {
         setMessage('Không kết nối được tới máy chủ. Hãy thử lại sau.');
     } finally {

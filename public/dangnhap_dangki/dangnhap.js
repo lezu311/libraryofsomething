@@ -32,7 +32,6 @@ loginForm.addEventListener('submit', async (event) => {
     btn.textContent = 'Đang đăng nhập...';
 
     try {
-        // Cần server.js có route POST /api/login
         const response = await fetch('/api/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -44,7 +43,7 @@ loginForm.addEventListener('submit', async (event) => {
             setMessage(data.message || 'Sai tên đăng nhập hoặc mật khẩu.');
             return;
         }
-        window.location.href = 'index.html';
+        window.location.href = '../index.html';
     } catch (err) {
         setMessage('Không kết nối được tới máy chủ. Hãy thử lại sau.');
     } finally {

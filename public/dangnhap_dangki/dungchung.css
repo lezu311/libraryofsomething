@@ -27,7 +27,7 @@ body {
     color: var(--text);
 }
 
-/* ===== THANH TRÊN (giống trang chủ) ===== */
+/* ===== THANH TRÊN ===== */
 .site-header {
     display: flex;
     justify-content: space-between;
@@ -38,7 +38,6 @@ body {
     color: var(--text-header);
 }
 
-/* khối trống bên phải, rộng bằng logo để tiêu đề nằm giữa */
 .site-header::after {
     content: "";
     flex: 1;
@@ -81,7 +80,7 @@ body {
     align-items: center;
 }
 
-/* ===== KHUNG ĐĂNG NHẬP ===== */
+/* ===== KHUNG ĐĂNG NHẬP / ĐĂNG KÝ ===== */
 .login-page {
     flex: 1;
     display: flex;
@@ -181,12 +180,19 @@ input:focus {
     cursor: not-allowed;
 }
 
-.back-link {
+.switch-text {
+    margin: 15px 0 0 0;
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+.switch-text a {
     color: var(--accent);
+    font-weight: bold;
     text-decoration: none;
 }
 
-.back-link:hover {
+.switch-text a:hover {
     text-decoration: underline;
 }
 
@@ -194,4 +200,10 @@ input:focus {
     display: inline-block;
     margin-top: 20px;
     font-size: 0.9rem;
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.back-link:hover {
+    text-decoration: underline;
 }
