@@ -1,6 +1,9 @@
 const searchBar = document.querySelector(".search-bar");
 const resultsBox = document.querySelector(".search-results");
 
+let currentCategory = ""; // mục đang chọn trong cây danh mục
+let requestCount = 0;     // để bỏ qua kết quả cũ về trễ
+
 function makeCard(book) {
     const card = document.createElement("a");
     card.className = "search-result";
@@ -25,13 +28,21 @@ function makeCard(book) {
 }
 
 async function search(query) {
-    const res = await fetch("/api/books?q=" + encodeURIComponent(query));
+    const myRequest = ++requestCount;
+
+    const url = "/api/books?q=" + encodeURIComponent(query) +
+        "&category=" + encodeURIComponent(currentCategory);
+    const res = await fetch(url);
     const books = await res.json();
+
+    if (myRequest !== requestCount) return; // đã có lần tìm mới hơn
 
     resultsBox.replaceChildren();
 
     if (books.length === 0) {
-        resultsBox.textContent = "No books match that title";
+        resultsBox.textContent = currentCategory
+            ? "Chưa có sách nào trong mục này."
+            : "No books match that title";
         return;
     }
 

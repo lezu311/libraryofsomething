@@ -21,6 +21,7 @@
             <p class="name">BookShare - Sách truyền tay</p>
             <p class="short-description">Bộ sách kết nối tri thức và cuộc sống</p>
         </div>
+        <button class="theme-toggle" id="themeToggle" aria-label="Đổi giao diện sáng/tối">🌙</button>
     </header>
 
     <section class="book-view">
@@ -34,7 +35,49 @@
             <input type="text" id="author" name="author">
 
             <label for="category">Category</label>
-            <input type="text" id="category" name="category">
+            <select id="category" name="category" required>
+                <option value="">-- Chọn mục --</option>
+
+                <optgroup label="Cấp 1">
+                    <option value="lop1-sgk">Lớp 1 - SGK</option>
+                    <option value="lop1-sbt">Lớp 1 - SBT</option>
+                    <option value="lop2-sgk">Lớp 2 - SGK</option>
+                    <option value="lop2-sbt">Lớp 2 - SBT</option>
+                    <option value="lop3-sgk">Lớp 3 - SGK</option>
+                    <option value="lop3-sbt">Lớp 3 - SBT</option>
+                    <option value="lop4-sgk">Lớp 4 - SGK</option>
+                    <option value="lop4-sbt">Lớp 4 - SBT</option>
+                    <option value="lop5-sgk">Lớp 5 - SGK</option>
+                    <option value="lop5-sbt">Lớp 5 - SBT</option>
+                </optgroup>
+
+                <optgroup label="Cấp 2">
+                    <option value="lop6-sgk">Lớp 6 - SGK</option>
+                    <option value="lop6-sbt">Lớp 6 - SBT</option>
+                    <option value="lop7-sgk">Lớp 7 - SGK</option>
+                    <option value="lop7-sbt">Lớp 7 - SBT</option>
+                    <option value="lop8-sgk">Lớp 8 - SGK</option>
+                    <option value="lop8-sbt">Lớp 8 - SBT</option>
+                    <option value="lop9-sgk">Lớp 9 - SGK</option>
+                    <option value="lop9-sbt">Lớp 9 - SBT</option>
+                </optgroup>
+
+                <optgroup label="Cấp 3">
+                    <option value="lop10-sgk">Lớp 10 - SGK</option>
+                    <option value="lop10-sbt">Lớp 10 - SBT</option>
+                    <option value="lop11-sgk">Lớp 11 - SGK</option>
+                    <option value="lop11-sbt">Lớp 11 - SBT</option>
+                    <option value="lop12-sgk">Lớp 12 - SGK</option>
+                    <option value="lop12-sbt">Lớp 12 - SBT</option>
+                </optgroup>
+
+                <optgroup label="Khác">
+                    <option value="truyen-tranh">Truyện tranh</option>
+                    <option value="tieu-thuyet">Tiểu thuyết</option>
+                    <option value="ky-nang">Sách kỹ năng</option>
+                    <option value="tham-khao">Sách tham khảo</option>
+                </optgroup>
+            </select>
 
             <label for="description">Description</label>
             <textarea id="description" name="description" rows="5"></textarea>

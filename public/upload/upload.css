@@ -20,6 +20,7 @@
 }
 
 .upload-card input[type="text"],
+.upload-card select,
 .upload-card textarea {
     padding: 8px 12px;
     border: 1px solid var(--bg-placeholder);

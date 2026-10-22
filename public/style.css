@@ -184,6 +184,8 @@ body {
 
 .category-tree-scroll {
     overflow-x: auto;
+    overflow-y: auto;
+    max-height: 480px;
     padding: 10px;
 }
 
@@ -258,7 +260,6 @@ details[open] > summary::before {
     align-items: center;
 }
 
-/* ảnh bìa trong thẻ sách */
 .search-result img,
 .featured-card img {
     display: block;
