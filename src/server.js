@@ -5,13 +5,35 @@ const multer = require("multer");
 const crypto = require("crypto");
 
 const app = express();
+app.set("trust proxy", true);
+const DATA_DIR = process.env.DATA_DIR || null;
 
-// ---------- data: books ----------
-const booksPath = path.join(__dirname, "..", "data", "books.json");
+const booksPath = DATA_DIR
+    ? path.join(DATA_DIR, "books.json")
+    : path.join(__dirname, "..", "data", "books.json");
+
+const usersPath = DATA_DIR
+    ? path.join(DATA_DIR, "users.json")
+    : path.join(__dirname, "..", "public", "dangnhap_dangki", "users.json");
+
+const coversDir = DATA_DIR
+    ? path.join(DATA_DIR, "covers")
+    : path.join(__dirname, "..", "public", "covers");
+
 fs.mkdirSync(path.dirname(booksPath), { recursive: true });
-if (!fs.existsSync(booksPath)) fs.writeFileSync(booksPath, "[]");
+fs.mkdirSync(path.dirname(usersPath), { recursive: true });
+fs.mkdirSync(coversDir, { recursive: true });
 
-const books = JSON.parse(fs.readFileSync(booksPath, "utf8"));
+function readJsonArray(file) {
+    try {
+        const data = JSON.parse(fs.readFileSync(file, "utf8"));
+        return Array.isArray(data) ? data : [];
+    } catch (err) {
+        return [];
+    }
+}
+
+const books = readJsonArray(booksPath);
 
 function nextId() {
     return books.length ? Math.max(...books.map(b => b.id)) + 1 : 1;
@@ -21,12 +43,7 @@ function saveBooks() {
     fs.writeFileSync(booksPath, JSON.stringify(books, null, 2));
 }
 
-// ---------- data: users (public/dangnhap_dangki/users.json) ----------
-const usersPath = path.join(__dirname, "..", "public", "dangnhap_dangki", "users.json");
-fs.mkdirSync(path.dirname(usersPath), { recursive: true });
-if (!fs.existsSync(usersPath)) fs.writeFileSync(usersPath, "[]");
-
-const users = JSON.parse(fs.readFileSync(usersPath, "utf8"));
+const users = readJsonArray(usersPath);
 
 function saveUsers() {
     fs.writeFileSync(usersPath, JSON.stringify(users, null, 2));
@@ -42,9 +59,8 @@ function checkPassword(password, user) {
     return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
-// ---------- sessions ----------
-const SESSION_MS = 7 * 24 * 60 * 60 * 1000; // 7 ngày
-const sessions = new Map(); // token -> { username, fullname, expires }
+const SESSION_MS = 7 * 24 * 60 * 60 * 1000;
+const sessions = new Map();
 
 function parseCookies(req) {
     const out = {};
@@ -66,22 +82,26 @@ function getSession(req) {
     return s;
 }
 
-function startSession(res, user) {
+function startSession(req, res, user) {
     const token = crypto.randomBytes(32).toString("hex");
     sessions.set(token, {
         username: user.username,
         fullname: user.fullname,
         expires: Date.now() + SESSION_MS
     });
+    const secure = req.secure ? "; Secure" : "";
     res.setHeader(
         "Set-Cookie",
-        `sid=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${SESSION_MS / 1000}`
+        `sid=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${SESSION_MS / 1000}${secure}`
     );
 }
 
-// ---------- uploads ----------
-const coversDir = path.join(__dirname, "..", "public", "covers");
-fs.mkdirSync(coversDir, { recursive: true });
+function requireLogin(req, res, next) {
+    if (!getSession(req)) {
+        return res.status(401).json({ error: "Bạn cần đăng nhập để đăng sách" });
+    }
+    next();
+}
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, coversDir),
@@ -101,21 +121,31 @@ const upload = multer({
     }
 });
 
-// ---------- middleware ----------
 app.use(express.json());
 
-// không cho tải users.json qua trình duyệt
 app.use("/dangnhap_dangki/users.json", (req, res) => {
     res.status(404).end();
 });
 
+app.use("/covers", express.static(coversDir));
+
 app.use(express.static(path.join(__dirname, "..", "public")));
 
-// ---------- đường dẫn ngắn ----------
 app.get("/dangki", (req, res) => res.redirect("/dangnhap_dangki/dangki.html"));
 app.get("/dangnhap", (req, res) => res.redirect("/dangnhap_dangki/dangnhap.html"));
 
-// ---------- auth routes ----------
+app.get("/sitemap.xml", (req, res) => {
+    const base = req.protocol + "://" + req.get("host");
+    const urls = [base + "/"].concat(
+        books.map(b => base + "/bookview/view.html?id=" + b.id)
+    );
+    const xml = '<?xml version="1.0" encoding="UTF-8"?>\n' +
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+        urls.map(u => "  <url><loc>" + u + "</loc></url>").join("\n") +
+        "\n</urlset>";
+    res.type("application/xml").send(xml);
+});
+
 app.post("/api/register", (req, res) => {
     const fullname = String(req.body.fullname || "").trim();
     const username = String(req.body.username || "").trim().toLowerCase();
@@ -160,7 +190,7 @@ app.post("/api/login", (req, res) => {
         return res.status(401).json({ message: "Sai tên đăng nhập hoặc mật khẩu." });
     }
 
-    startSession(res, user);
+    startSession(req, res, user);
     res.json({ ok: true, fullname: user.fullname });
 });
 
@@ -177,7 +207,6 @@ app.get("/api/me", (req, res) => {
     res.json({ username: s.username, fullname: s.fullname });
 });
 
-// ---------- book routes ----------
 app.get("/api/book", (req, res) => {
     const book = books.find(b => b.id === Number(req.query.id));
 
@@ -201,8 +230,7 @@ app.get("/api/books", (req, res) => {
     res.json(result);
 });
 
-// add a book (NO LOGIN CHECK YET - keep this on your own computer)
-app.post("/api/books", upload.single("cover"), (req, res) => {
+app.post("/api/books", requireLogin, upload.single("cover"), (req, res) => {
     const { title, author, category, description } = req.body;
 
     if (!title || !title.trim()) {
@@ -235,7 +263,8 @@ app.use((err, req, res, next) => {
     res.status(500).json({ error: "Server error" });
 });
 
-// ---------- start ----------
-app.listen(3000, () => {
-    console.log("Server running at http://localhost:3000");
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log("Server running on port " + PORT);
+    console.log("Data folder: " + (DATA_DIR || "local project folders"));
 });

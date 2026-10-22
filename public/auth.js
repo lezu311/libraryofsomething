@@ -1,14 +1,20 @@
 fetch('/api/me')
     .then(res => (res.ok ? res.json() : null))
     .then(me => {
-        if (!me) return;
+        if (!me) return; // chưa đăng nhập: nút Đăng sách vẫn ẩn
 
         const box = document.querySelector('.header-actions');
-        box.replaceChildren();
+
+        // đã đăng nhập: hiện nút Đăng sách
+        const uploadLink = box.querySelector('.upload-link');
+        if (uploadLink) uploadLink.hidden = false;
+
+        // xóa nút Đăng nhập / Đăng ký
+        box.querySelectorAll('a[href^="dangnhap_dangki/"]').forEach(a => a.remove());
 
         const hello = document.createElement('span');
         hello.textContent = 'Xin chào, ' + me.fullname;
-        hello.style.marginRight = '12px';
+        hello.style.whiteSpace = 'nowrap';
 
         const out = document.createElement('a');
         out.className = 'login-link';

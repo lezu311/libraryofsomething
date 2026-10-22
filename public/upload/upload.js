@@ -1,3 +1,8 @@
+// chưa đăng nhập thì đưa về trang đăng nhập
+fetch("/api/me").then(res => {
+    if (!res.ok) window.location.href = "/dangnhap_dangki/dangnhap.html";
+});
+
 const form = document.querySelector("#upload-form");
 const message = document.querySelector("#form-message");
 const coverInput = document.querySelector("#cover");
