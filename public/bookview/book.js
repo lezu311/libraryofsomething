@@ -33,6 +33,36 @@ async function loadBook(reqId) {
         img.remove();
         document.querySelector(".book-cover").classList.add("cover-placeholder");
     }
+
+    // chỉ chủ sách / quản trị viên mới thấy nút xoá
+    if (book.canDelete) {
+        const deleteButton = document.querySelector("#delete-button");
+        deleteButton.hidden = false;
+
+        deleteButton.addEventListener("click", async () => {
+            if (!confirm("Bạn chắc chắn muốn xoá sách \"" + book.title + "\"? Không thể khôi phục.")) {
+                return;
+            }
+
+            deleteButton.disabled = true;
+
+            try {
+                const delRes = await fetch("/api/books/" + book.id, { method: "DELETE" });
+                const data = await delRes.json().catch(() => ({}));
+
+                if (!delRes.ok) {
+                    alert(data.error || "Không xoá được sách.");
+                    deleteButton.disabled = false;
+                    return;
+                }
+
+                window.location.href = "/index.html";
+            } catch (err) {
+                alert("Không kết nối được tới máy chủ.");
+                deleteButton.disabled = false;
+            }
+        });
+    }
 }
 
 loadBook(bookId);

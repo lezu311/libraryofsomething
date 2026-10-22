@@ -5,7 +5,13 @@ const multer = require("multer");
 const crypto = require("crypto");
 
 const app = express();
+
+// Render đứng sau proxy: cần để req.protocol / req.secure đúng (https)
 app.set("trust proxy", true);
+
+// ---------- nơi lưu dữ liệu ----------
+// Trên Render (có ổ đĩa): đặt biến môi trường DATA_DIR=/var/data
+// Trên máy bạn: không đặt, dữ liệu nằm như cũ.
 const DATA_DIR = process.env.DATA_DIR || null;
 
 const booksPath = DATA_DIR
@@ -24,6 +30,13 @@ fs.mkdirSync(path.dirname(booksPath), { recursive: true });
 fs.mkdirSync(path.dirname(usersPath), { recursive: true });
 fs.mkdirSync(coversDir, { recursive: true });
 
+// quản trị viên: xoá được mọi sách. Ví dụ ADMIN_USERS=tin,admin
+const ADMIN_USERS = (process.env.ADMIN_USERS || "")
+    .split(",")
+    .map(s => s.trim().toLowerCase())
+    .filter(Boolean);
+
+// đọc file JSON, nếu file chưa có / rỗng / lỗi thì trả về []
 function readJsonArray(file) {
     try {
         const data = JSON.parse(fs.readFileSync(file, "utf8"));
@@ -33,6 +46,7 @@ function readJsonArray(file) {
     }
 }
 
+// ---------- data: books ----------
 const books = readJsonArray(booksPath);
 
 function nextId() {
@@ -43,6 +57,7 @@ function saveBooks() {
     fs.writeFileSync(booksPath, JSON.stringify(books, null, 2));
 }
 
+// ---------- data: users ----------
 const users = readJsonArray(usersPath);
 
 function saveUsers() {
@@ -59,8 +74,9 @@ function checkPassword(password, user) {
     return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
-const SESSION_MS = 7 * 24 * 60 * 60 * 1000;
-const sessions = new Map();
+// ---------- sessions ----------
+const SESSION_MS = 7 * 24 * 60 * 60 * 1000; // 7 ngày
+const sessions = new Map(); // token -> { username, fullname, expires }
 
 function parseCookies(req) {
     const out = {};
@@ -96,13 +112,30 @@ function startSession(req, res, user) {
     );
 }
 
+// chặn người chưa đăng nhập
 function requireLogin(req, res, next) {
     if (!getSession(req)) {
-        return res.status(401).json({ error: "Bạn cần đăng nhập để đăng sách" });
+        return res.status(401).json({ error: "Bạn cần đăng nhập" });
     }
     next();
 }
 
+// ---------- quyền xoá sách ----------
+// được xoá: quản trị viên, hoặc chính người đã đăng cuốn đó
+function canDelete(req, book) {
+    const s = getSession(req);
+    if (!s) return false;
+    if (ADMIN_USERS.includes(s.username)) return true;
+    return Boolean(book.owner) && book.owner === s.username;
+}
+
+// bỏ trường "owner" trước khi gửi ra ngoài (không lộ tên đăng nhập)
+function publicBook(book) {
+    const { owner, ...rest } = book;
+    return rest;
+}
+
+// ---------- uploads ----------
 const storage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, coversDir),
     filename: (req, file, cb) => {
@@ -121,19 +154,24 @@ const upload = multer({
     }
 });
 
+// ---------- middleware ----------
 app.use(express.json());
 
+// không cho tải users.json qua trình duyệt
 app.use("/dangnhap_dangki/users.json", (req, res) => {
     res.status(404).end();
 });
 
+// ảnh bìa (nằm trong thư mục dữ liệu, nên phải phục vụ riêng)
 app.use("/covers", express.static(coversDir));
 
 app.use(express.static(path.join(__dirname, "..", "public")));
 
+// ---------- đường dẫn ngắn ----------
 app.get("/dangki", (req, res) => res.redirect("/dangnhap_dangki/dangki.html"));
 app.get("/dangnhap", (req, res) => res.redirect("/dangnhap_dangki/dangnhap.html"));
 
+// ---------- sitemap cho Google ----------
 app.get("/sitemap.xml", (req, res) => {
     const base = req.protocol + "://" + req.get("host");
     const urls = [base + "/"].concat(
@@ -146,6 +184,7 @@ app.get("/sitemap.xml", (req, res) => {
     res.type("application/xml").send(xml);
 });
 
+// ---------- auth routes ----------
 app.post("/api/register", (req, res) => {
     const fullname = String(req.body.fullname || "").trim();
     const username = String(req.body.username || "").trim().toLowerCase();
@@ -207,6 +246,7 @@ app.get("/api/me", (req, res) => {
     res.json({ username: s.username, fullname: s.fullname });
 });
 
+// ---------- book routes ----------
 app.get("/api/book", (req, res) => {
     const book = books.find(b => b.id === Number(req.query.id));
 
@@ -214,7 +254,7 @@ app.get("/api/book", (req, res) => {
         return res.status(404).json({ error: "Book not found" });
     }
 
-    res.json(book);
+    res.json({ ...publicBook(book), canDelete: canDelete(req, book) });
 });
 
 app.get("/api/books", (req, res) => {
@@ -227,9 +267,10 @@ app.get("/api/books", (req, res) => {
         return titleOk && categoryOk;
     });
 
-    res.json(result);
+    res.json(result.map(publicBook));
 });
 
+// add a book (chỉ người đã đăng nhập)
 app.post("/api/books", requireLogin, upload.single("cover"), (req, res) => {
     const { title, author, category, description } = req.body;
 
@@ -243,13 +284,41 @@ app.post("/api/books", requireLogin, upload.single("cover"), (req, res) => {
         author,
         category,
         description,
-        cover: req.file ? req.file.filename : null
+        cover: req.file ? req.file.filename : null,
+        owner: getSession(req).username
     };
 
     books.push(book);
     saveBooks();
 
-    res.status(201).json(book);
+    res.status(201).json(publicBook(book));
+});
+
+// xoá sách (chủ sách hoặc quản trị viên)
+app.delete("/api/books/:id", requireLogin, (req, res) => {
+    const id = Number(req.params.id);
+    const index = books.findIndex(b => b.id === id);
+
+    if (index === -1) {
+        return res.status(404).json({ error: "Không tìm thấy sách" });
+    }
+
+    const book = books[index];
+
+    if (!canDelete(req, book)) {
+        return res.status(403).json({ error: "Bạn không có quyền xoá sách này" });
+    }
+
+    books.splice(index, 1);
+    saveBooks();
+
+    // xoá luôn ảnh bìa trên ổ đĩa
+    if (book.cover) {
+        const file = path.join(coversDir, path.basename(book.cover));
+        fs.unlink(file, () => {});
+    }
+
+    res.json({ ok: true });
 });
 
 app.use((err, req, res, next) => {
@@ -263,6 +332,7 @@ app.use((err, req, res, next) => {
     res.status(500).json({ error: "Server error" });
 });
 
+// ---------- start ----------
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log("Server running on port " + PORT);

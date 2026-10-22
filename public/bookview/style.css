@@ -112,3 +112,22 @@ body {
 .book-category {
     color: var(--accent);
 }
+.delete-button {
+    margin-top: 20px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 20px;
+    background-color: #d64545;
+    color: #ffffff;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+.delete-button:hover {
+    opacity: 0.85;
+}
+
+.delete-button:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
