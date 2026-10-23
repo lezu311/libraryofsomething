@@ -371,3 +371,5 @@ initDb()
         console.error("Không kết nối được database:", err.message);
         process.exit(1);
     });
+
+// test
