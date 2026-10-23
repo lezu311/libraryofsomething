@@ -28,11 +28,6 @@ fetch('/api/me')
 
         chip.append(avatar, name);
 
-        const account = document.createElement('a');
-        account.className = 'login-link';
-        account.href = 'dangnhap_dangki/taikhoan.html';
-        account.textContent = 'Tài khoản';
-
         const out = document.createElement('a');
         out.className = 'login-link';
         out.href = '#';
@@ -44,6 +39,6 @@ fetch('/api/me')
         });
 
         box.prepend(chip);
-        box.append(account, out);
+        box.append(out);
     })
     .catch(() => {});
