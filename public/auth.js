@@ -12,9 +12,26 @@ fetch('/api/me')
         // xóa nút Đăng nhập / Đăng ký
         box.querySelectorAll('a[href^="dangnhap_dangki/"]').forEach(a => a.remove());
 
-        const hello = document.createElement('span');
-        hello.textContent = 'Xin chào, ' + me.fullname;
-        hello.style.whiteSpace = 'nowrap';
+        // thẻ tên: vòng tròn chữ cái đầu + tên
+        const chip = document.createElement('div');
+        chip.className = 'user-chip';
+
+        const lastWord = me.fullname.trim().split(/\s+/).pop() || '?';
+        const avatar = document.createElement('span');
+        avatar.className = 'user-avatar';
+        avatar.textContent = lastWord.charAt(0).toUpperCase();
+
+        const name = document.createElement('span');
+        name.className = 'user-name';
+        name.textContent = me.fullname;
+        name.title = me.fullname;
+
+        chip.append(avatar, name);
+
+        const account = document.createElement('a');
+        account.className = 'login-link';
+        account.href = 'dangnhap_dangki/taikhoan.html';
+        account.textContent = 'Tài khoản';
 
         const out = document.createElement('a');
         out.className = 'login-link';
@@ -26,6 +43,7 @@ fetch('/api/me')
             location.reload();
         });
 
-        box.append(hello, out);
+        box.prepend(chip);
+        box.append(account, out);
     })
     .catch(() => {});
