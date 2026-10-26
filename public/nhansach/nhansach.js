@@ -1,15 +1,6 @@
 const incomingBox = document.querySelector("#incoming-list");
 const outgoingBox = document.querySelector("#outgoing-list");
 
-const ICONS = {
-    pending: "⏳",
-    accepted: "✅",
-    declined: "❌",
-    cancelled: "⚪",
-    closed: "📕"
-};
-
-// "vừa xong", "5 phút trước", "2 giờ trước", "3 ngày trước"
 function timeAgo(value) {
     const seconds = Math.floor((Date.now() - new Date(value).getTime()) / 1000);
     if (seconds < 60) return "Vừa xong";
@@ -82,7 +73,6 @@ function makeRadio(name, value, labelText, checked) {
     return label;
 }
 
-// khung chọn nơi nhận sách (hiện khi người đăng xử lý yêu cầu)
 function makePickupForm(r) {
     const form = el("div", "pickup-form");
     form.appendChild(el("p", "pickup-title", "Chọn nơi trao sách:"));
@@ -117,7 +107,6 @@ function makePickupForm(r) {
     return form;
 }
 
-// thông báo: có người muốn nhận sách của mình
 function incomingCard(r) {
     const { card, body } = makeCard(r.status, r.status === "pending" ? "📩" : ICONS[r.status]);
 
@@ -229,7 +218,6 @@ async function loadAll() {
             fetch("/api/requests/outgoing")
         ]);
 
-        // chưa đăng nhập thì đưa về trang đăng nhập
         if (inRes.status === 401 || outRes.status === 401) {
             window.location.href = "/dangnhap_dangki/dangnhap.html";
             return;
