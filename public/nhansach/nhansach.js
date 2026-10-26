@@ -56,12 +56,11 @@ async function act(url, button, confirmText, payload) {
             alert(data.error || "Không thực hiện được.");
         }
     } catch (err) {
-        alert("Không kết nối được tới máy chủ.");
+        alert("chưa có người muốn xin sách của bạn");
     }
     loadAll();
 }
 
-// một lựa chọn nơi nhận sách (nút tròn)
 function makeRadio(name, value, labelText, checked) {
     const label = el("label", "pickup-option");
     const input = document.createElement("input");
