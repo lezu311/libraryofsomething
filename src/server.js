@@ -604,7 +604,6 @@ app.use((err, req, res, next) => {
     res.status(500).json({ error: "Server error", message: "Lỗi máy chủ, hãy thử lại sau." });
 });
 
-// ---------- start ----------
 const PORT = process.env.PORT || 3000;
 
 initDb()
