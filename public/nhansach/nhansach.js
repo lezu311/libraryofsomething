@@ -153,6 +153,7 @@ async function loadAll() {
             fetch("/api/requests/outgoing")
         ]);
 
+        // chưa đăng nhập thì đưa về trang đăng nhập
         if (inRes.status === 401 || outRes.status === 401) {
             window.location.href = "/dangnhap_dangki/dangnhap.html";
             return;

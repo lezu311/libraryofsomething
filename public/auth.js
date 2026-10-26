@@ -31,7 +31,7 @@ fetch('/api/me')
         // nút Yêu cầu (kèm số yêu cầu đang chờ)
         const requests = document.createElement('a');
         requests.className = 'login-link';
-        requests.href = 'requests/requests.html';
+        requests.href = 'nhansach/nhansach.html';
         requests.textContent = 'Yêu cầu';
         if (me.pendingRequests > 0) {
             const badge = document.createElement('span');

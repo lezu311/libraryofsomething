@@ -31,6 +31,24 @@
                 <p class="book-author">Author: Someone</p>
                 <p class="book-category">Category: Grade 6 / Literature</p>
                 <p class="book-description">A short description of the book goes here.</p>
+
+                <!-- khu vực nhận sách -->
+                <div id="request-box" class="request-box" hidden>
+                    <button type="button" id="request-button" class="request-button" hidden>Nhận sách</button>
+
+                    <form id="request-form" class="request-form" hidden>
+                        <label for="request-message">Ghi cách để người đăng liên lạc với bạn (lớp, Zalo, số điện thoại...)</label>
+                        <textarea id="request-message" rows="3" maxlength="300"></textarea>
+                        <div class="request-actions">
+                            <button type="submit" class="request-button">Gửi yêu cầu</button>
+                            <button type="button" id="request-close" class="request-secondary">Huỷ</button>
+                        </div>
+                    </form>
+
+                    <p id="request-status" class="request-status" role="status"></p>
+                    <a id="request-link" class="request-link" href="/nhansach/nhansach.html" hidden>Xem yêu cầu →</a>
+                </div>
+
                 <button type="button" id="delete-button" class="delete-button" hidden>Xoá sách</button>
             </div>
         </div>
