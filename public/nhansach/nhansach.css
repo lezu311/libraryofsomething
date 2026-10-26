@@ -1,0 +1,120 @@
+.requests-wrap {
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+.requests-wrap h2 {
+    margin: 25px 0 8px 0;
+}
+
+.back-home {
+    display: inline-block;
+    color: var(--accent);
+    font-weight: bold;
+    text-decoration: none;
+}
+
+.back-home:hover {
+    text-decoration: underline;
+}
+
+.hint {
+    margin: 0 0 12px 0;
+    color: #555;
+    font-size: 0.9rem;
+}
+
+.request-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.request-card {
+    padding: 15px;
+    background-color: var(--bg-card);
+    border-radius: 10px;
+    box-shadow: 0 2px 8px var(--shadow);
+}
+
+.request-card h3 {
+    margin: 0 0 6px 0;
+    font-size: 1.05rem;
+}
+
+.request-card h3 a {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.request-card h3 a:hover {
+    text-decoration: underline;
+}
+
+.request-meta {
+    margin: 0 0 8px 0;
+    color: #555;
+    font-size: 0.9rem;
+}
+
+.request-message {
+    margin: 0 0 10px 0;
+    padding: 8px 12px;
+    background-color: var(--bg-section);
+    border-radius: 6px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.request-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-accept,
+.btn-decline,
+.btn-cancel {
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.95rem;
+    cursor: pointer;
+}
+
+.btn-accept {
+    border: none;
+    background-color: #1e8449;
+    color: #ffffff;
+}
+
+.btn-decline,
+.btn-cancel {
+    border: 2px solid #d64545;
+    background: none;
+    color: #d64545;
+}
+
+.btn-accept:disabled,
+.btn-decline:disabled,
+.btn-cancel:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+.status-tag {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: bold;
+    background-color: #e3e7ee;
+    color: #333;
+}
+
+.status-pending { background-color: #fff3cd; color: #7a5b00; }
+.status-accepted { background-color: #d4edda; color: #1e6b36; }
+.status-declined,
+.status-cancelled { background-color: #f8d7da; color: #8a2b33; }
+
+.empty {
+    color: #555;
+}

@@ -28,6 +28,18 @@ fetch('/api/me')
 
         chip.append(avatar, name);
 
+        // nút Yêu cầu (kèm số yêu cầu đang chờ)
+        const requests = document.createElement('a');
+        requests.className = 'login-link';
+        requests.href = 'requests/requests.html';
+        requests.textContent = 'Yêu cầu';
+        if (me.pendingRequests > 0) {
+            const badge = document.createElement('span');
+            badge.className = 'request-badge';
+            badge.textContent = me.pendingRequests;
+            requests.appendChild(badge);
+        }
+
         const out = document.createElement('a');
         out.className = 'login-link';
         out.href = '#';
@@ -39,6 +51,6 @@ fetch('/api/me')
         });
 
         box.prepend(chip);
-        box.append(out);
+        box.append(requests, out);
     })
     .catch(() => {});

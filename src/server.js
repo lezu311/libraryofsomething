@@ -1,375 +1,162 @@
-const express = require("express");
-const path = require("path");
-const multer = require("multer");
-const crypto = require("crypto");
-const { Pool } = require("pg");
+const bookParams = new URLSearchParams(window.location.search);
+const bookId = bookParams.get("id");
 
-const app = express();
+// khu vực nhận sách: hiện nút / thông báo tuỳ người xem là ai
+function setupRequestBox(book) {
+    const box = document.querySelector("#request-box");
+    const button = document.querySelector("#request-button");
+    const form = document.querySelector("#request-form");
+    const closeButton = document.querySelector("#request-close");
+    const messageInput = document.querySelector("#request-message");
+    const status = document.querySelector("#request-status");
+    const link = document.querySelector("#request-link");
 
-app.set("trust proxy", true);
-
-const DATABASE_URL = process.env.DATABASE_URL;
-if (!DATABASE_URL) {
-    console.error("Thiếu biến môi trường DATABASE_URL (xem hướng dẫn nối database).");
-    process.exit(1);
-}
-const useSsl = DATABASE_URL.includes("render.com") || process.env.PGSSL === "true";
-const pool = new Pool({
-    connectionString: DATABASE_URL,
-    ssl: useSsl ? { rejectUnauthorized: false } : false
-});
-
-async function initDb() {
-    await pool.query(`
-        CREATE TABLE IF NOT EXISTS users (
-            username   TEXT PRIMARY KEY,
-            fullname   TEXT NOT NULL,
-            salt       TEXT NOT NULL,
-            hash       TEXT NOT NULL,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-        )
-    `);
-    await pool.query(`
-        CREATE TABLE IF NOT EXISTS books (
-            id          SERIAL PRIMARY KEY,
-            title       TEXT NOT NULL,
-            author      TEXT,
-            category    TEXT,
-            description TEXT,
-            owner       TEXT,
-            cover_type  TEXT,
-            cover_data  BYTEA,
-            created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
-        )
-    `);
-}
-
-const ADMIN_USERS = (process.env.ADMIN_USERS || "")
-    .split(",")
-    .map(s => s.trim().toLowerCase())
-    .filter(Boolean);
-
-function hashPassword(password, salt) {
-    return crypto.scryptSync(password, salt, 64).toString("hex");
-}
-
-function checkPassword(password, user) {
-    const a = Buffer.from(hashPassword(password, user.salt), "hex");
-    const b = Buffer.from(user.hash, "hex");
-    return a.length === b.length && crypto.timingSafeEqual(a, b);
-}
-
-const SESSION_MS = 7 * 24 * 60 * 60 * 1000;
-const sessions = new Map();
-
-function parseCookies(req) {
-    const out = {};
-    for (const part of (req.headers.cookie || "").split(";")) {
-        const i = part.indexOf("=");
-        if (i > 0) out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim());
+    function say(text, isError) {
+        status.textContent = text;
+        status.classList.toggle("error", Boolean(isError));
     }
-    return out;
-}
 
-function getSession(req) {
-    const token = parseCookies(req).sid;
-    const s = token && sessions.get(token);
-    if (!s) return null;
-    if (s.expires < Date.now()) {
-        sessions.delete(token);
-        return null;
+    if (book.isOwner) {
+        box.hidden = false;
+        say("Đây là sách bạn đăng. Người muốn nhận sẽ gửi yêu cầu cho bạn.");
+        link.textContent = "Xem yêu cầu nhận sách →";
+        link.hidden = false;
+        return;
     }
-    return s;
-}
 
-function startSession(req, res, user) {
-    const token = crypto.randomBytes(32).toString("hex");
-    sessions.set(token, {
-        username: user.username,
-        fullname: user.fullname,
-        expires: Date.now() + SESSION_MS
+    if (!book.hasOwner) return; // sách cũ không có người đăng: không nhận được
+
+    box.hidden = false;
+
+    if (!book.loggedIn) {
+        say("Đăng nhập để gửi yêu cầu nhận sách này.");
+        link.textContent = "Đăng nhập →";
+        link.href = "/dangnhap_dangki/dangnhap.html";
+        link.hidden = false;
+        return;
+    }
+
+    if (book.myRequest === "pending") {
+        say("Bạn đã gửi yêu cầu, đang chờ người đăng đồng ý.");
+        link.hidden = false;
+        return;
+    }
+
+    button.hidden = false;
+
+    button.addEventListener("click", () => {
+        button.hidden = true;
+        form.hidden = false;
+        messageInput.focus();
     });
-    const secure = req.secure ? "; Secure" : "";
-    res.setHeader(
-        "Set-Cookie",
-        `sid=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${SESSION_MS / 1000}${secure}`
-    );
-}
 
-function requireLogin(req, res, next) {
-    if (!getSession(req)) {
-        return res.status(401).json({ error: "Bạn cần đăng nhập" });
-    }
-    next();
-}
+    closeButton.addEventListener("click", () => {
+        form.hidden = true;
+        button.hidden = false;
+        say("");
+    });
 
-function canDelete(req, book) {
-    const s = getSession(req);
-    if (!s) return false;
-    if (ADMIN_USERS.includes(s.username)) return true;
-    return Boolean(book.owner) && book.owner === s.username;
-}
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
 
-function coverName(row) {
-    if (!row.cover_type) return null;
-    return row.id + (row.cover_type === "image/png" ? ".png" : ".jpg");
-}
-
-function publicBook(row) {
-    return {
-        id: row.id,
-        title: row.title,
-        author: row.author,
-        category: row.category,
-        description: row.description,
-        cover: coverName(row)
-    };
-}
-
-const upload = multer({
-    storage: multer.memoryStorage(),
-    limits: { fileSize: 1024 * 1024 }, // 1 MB
-    fileFilter: (req, file, cb) => {
-        const ok = ["image/png", "image/jpeg"].includes(file.mimetype);
-        cb(null, ok);
-    }
-});
-
-app.use(express.json());
-
-app.use("/dangnhap_dangki/users.json", (req, res) => {
-    res.status(404).end();
-});
-
-app.get("/covers/:file", async (req, res) => {
-    const id = parseInt(req.params.file, 10);
-    if (!Number.isInteger(id)) return res.status(404).end();
-
-    const { rows } = await pool.query(
-        "SELECT cover_type, cover_data FROM books WHERE id = $1",
-        [id]
-    );
-    if (!rows.length || !rows[0].cover_data) return res.status(404).end();
-
-    res.set("Cache-Control", "public, max-age=86400");
-    res.type(rows[0].cover_type).send(rows[0].cover_data);
-});
-
-app.use(express.static(path.join(__dirname, "..", "public")));
-
-app.get("/dangki", (req, res) => res.redirect("/dangnhap_dangki/dangki.html"));
-app.get("/dangnhap", (req, res) => res.redirect("/dangnhap_dangki/dangnhap.html"));
-
-app.get("/sitemap.xml", async (req, res) => {
-    const { rows } = await pool.query("SELECT id FROM books ORDER BY id");
-    const base = req.protocol + "://" + req.get("host");
-    const urls = [base + "/"].concat(
-        rows.map(b => base + "/bookview/view.html?id=" + b.id)
-    );
-    const xml = '<?xml version="1.0" encoding="UTF-8"?>\n' +
-        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
-        urls.map(u => "  <url><loc>" + u + "</loc></url>").join("\n") +
-        "\n</urlset>";
-    res.type("application/xml").send(xml);
-});
-
-app.post("/api/register", async (req, res) => {
-    const fullname = String(req.body.fullname || "").trim();
-    const username = String(req.body.username || "").trim().toLowerCase();
-    const password = String(req.body.password || "");
-
-    if (!fullname || !username || !password) {
-        return res.status(400).json({ message: "Vui lòng điền đầy đủ các ô." });
-    }
-    if (username.length < 4) {
-        return res.status(400).json({ message: "Tên đăng nhập phải có ít nhất 4 ký tự." });
-    }
-    if (!/^[a-z0-9_]+$/.test(username)) {
-        return res.status(400).json({ message: "Tên đăng nhập chỉ gồm chữ không dấu, số và dấu gạch dưới." });
-    }
-    if (password.length < 6) {
-        return res.status(400).json({ message: "Mật khẩu phải có ít nhất 6 ký tự." });
-    }
-
-    const salt = crypto.randomBytes(16).toString("hex");
-    try {
-        await pool.query(
-            "INSERT INTO users (username, fullname, salt, hash) VALUES ($1, $2, $3, $4)",
-            [username, fullname, salt, hashPassword(password, salt)]
-        );
-    } catch (err) {
-        if (err.code === "23505") {
-            return res.status(409).json({ message: "Tên đăng nhập đã tồn tại." });
+        const message = messageInput.value.trim();
+        if (!message) {
+            say("Hãy ghi cách để người đăng liên lạc với bạn.", true);
+            return;
         }
-        throw err;
-    }
 
-    res.status(201).json({ ok: true });
-});
+        const submit = form.querySelector("button[type=submit]");
+        submit.disabled = true;
+        say("Đang gửi...");
 
-app.post("/api/login", async (req, res) => {
-    const username = String(req.body.username || "").trim().toLowerCase();
-    const password = String(req.body.password || "");
+        try {
+            const res = await fetch("/api/books/" + book.id + "/request", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message })
+            });
+            const data = await res.json().catch(() => ({}));
 
-    const { rows } = await pool.query("SELECT * FROM users WHERE username = $1", [username]);
-    const user = rows[0];
+            if (!res.ok) {
+                say(data.error || "Không gửi được yêu cầu.", true);
+                submit.disabled = false;
+                return;
+            }
 
-    if (!user || !checkPassword(password, user)) {
-        return res.status(401).json({ message: "Sai tên đăng nhập hoặc mật khẩu." });
-    }
-
-    startSession(req, res, user);
-    res.json({ ok: true, fullname: user.fullname });
-});
-
-app.post("/api/logout", (req, res) => {
-    const token = parseCookies(req).sid;
-    if (token) sessions.delete(token);
-    res.setHeader("Set-Cookie", "sid=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0");
-    res.json({ ok: true });
-});
-
-app.get("/api/me", (req, res) => {
-    const s = getSession(req);
-    if (!s) return res.status(401).json({ error: "Chưa đăng nhập" });
-    res.json({ username: s.username, fullname: s.fullname });
-});
-
-app.delete("/api/account", requireLogin, async (req, res) => {
-    const s = getSession(req);
-    const password = String(req.body.password || "");
-    const deleteBooks = Boolean(req.body.deleteBooks);
-
-    const { rows } = await pool.query("SELECT * FROM users WHERE username = $1", [s.username]);
-    if (!rows.length || !checkPassword(password, rows[0])) {
-        return res.status(401).json({ message: "Mật khẩu không đúng." });
-    }
-
-    const client = await pool.connect();
-    try {
-        await client.query("BEGIN");
-        if (deleteBooks) {
-            await client.query("DELETE FROM books WHERE owner = $1", [s.username]);
-        } else {
-            await client.query("UPDATE books SET owner = NULL WHERE owner = $1", [s.username]);
+            form.hidden = true;
+            say("Đã gửi yêu cầu! Hãy chờ người đăng đồng ý.");
+            link.hidden = false;
+        } catch (err) {
+            say("Không kết nối được tới máy chủ.", true);
+            submit.disabled = false;
         }
-        await client.query("DELETE FROM users WHERE username = $1", [s.username]);
-        await client.query("COMMIT");
-    } catch (err) {
-        await client.query("ROLLBACK");
-        throw err;
-    } finally {
-        client.release();
+    });
+}
+
+async function loadBook(reqId) {
+    const preview = document.querySelector("#book-preview");
+
+    if (!reqId) {
+        preview.textContent = "No book selected";
+        return;
     }
 
-    for (const [token, sess] of sessions) {
-        if (sess.username === s.username) sessions.delete(token);
+    const res = await fetch("/api/book?id=" + reqId);
+
+    if (!res.ok) {
+        preview.textContent = "Book not found";
+        return;
     }
 
-    res.setHeader("Set-Cookie", "sid=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0");
-    res.json({ ok: true });
-});
+    const book = await res.json();
 
-app.get("/api/book", async (req, res) => {
-    const id = Number(req.query.id);
-    if (!Number.isInteger(id)) {
-        return res.status(404).json({ error: "Book not found" });
+    document.title = book.title + " - BookShare";
+    document.querySelector(".book-title").textContent = book.title;
+    document.querySelector(".book-author").textContent = "Author: " + (book.author || "Unknown");
+    document.querySelector(".book-category").textContent = "Category: " + (book.category || "None");
+    document.querySelector(".book-description").textContent = book.description || "";
+
+    const img = document.querySelector(".book-cover img");
+    if (book.cover) {
+        img.src = "/covers/" + book.cover;
+        img.alt = "Cover of " + book.title;
+    } else {
+        // no cover uploaded: hide the broken image and show a gray box instead
+        img.remove();
+        document.querySelector(".book-cover").classList.add("cover-placeholder");
     }
 
-    const { rows } = await pool.query(
-        "SELECT id, title, author, category, description, owner, cover_type FROM books WHERE id = $1",
-        [id]
-    );
-    if (!rows.length) {
-        return res.status(404).json({ error: "Book not found" });
-    }
+    setupRequestBox(book);
 
-    res.json({ ...publicBook(rows[0]), canDelete: canDelete(req, rows[0]) });
-});
+    // chỉ chủ sách / quản trị viên mới thấy nút xoá
+    if (book.canDelete) {
+        const deleteButton = document.querySelector("#delete-button");
+        deleteButton.hidden = false;
 
-app.get("/api/books", async (req, res) => {
-    const q = String(req.query.q || "").toLowerCase();
-    const category = String(req.query.category || "").toLowerCase();
+        deleteButton.addEventListener("click", async () => {
+            if (!confirm("Bạn chắc chắn muốn xoá sách \"" + book.title + "\"? Không thể khôi phục.")) {
+                return;
+            }
 
-    const { rows } = await pool.query(
-        `SELECT id, title, author, category, description, cover_type
-         FROM books
-         WHERE position($1 in lower(coalesce(title, ''))) > 0
-           AND ($2 = '' OR lower(coalesce(category, '')) = $2)
-         ORDER BY id`,
-        [q, category]
-    );
+            deleteButton.disabled = true;
 
-    res.json(rows.map(publicBook));
-});
+            try {
+                const delRes = await fetch("/api/books/" + book.id, { method: "DELETE" });
+                const data = await delRes.json().catch(() => ({}));
 
-app.post("/api/books", requireLogin, upload.single("cover"), async (req, res) => {
-    const { title, author, category, description } = req.body;
+                if (!delRes.ok) {
+                    alert(data.error || "Không xoá được sách.");
+                    deleteButton.disabled = false;
+                    return;
+                }
 
-    if (!title || !title.trim()) {
-        return res.status(400).json({ error: "Title is required" });
-    }
-
-    const file = req.file;
-    const { rows } = await pool.query(
-        `INSERT INTO books (title, author, category, description, owner, cover_type, cover_data)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         RETURNING id, title, author, category, description, cover_type`,
-        [
-            title.trim(),
-            author || null,
-            category || null,
-            description || null,
-            getSession(req).username,
-            file ? file.mimetype : null,
-            file ? file.buffer : null
-        ]
-    );
-
-    res.status(201).json(publicBook(rows[0]));
-});
-
-app.delete("/api/books/:id", requireLogin, async (req, res) => {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id)) {
-        return res.status(404).json({ error: "Không tìm thấy sách" });
-    }
-
-    const { rows } = await pool.query("SELECT id, owner FROM books WHERE id = $1", [id]);
-    if (!rows.length) {
-        return res.status(404).json({ error: "Không tìm thấy sách" });
-    }
-
-    if (!canDelete(req, rows[0])) {
-        return res.status(403).json({ error: "Bạn không có quyền xoá sách này" });
-    }
-
-    await pool.query("DELETE FROM books WHERE id = $1", [id]);
-    res.json({ ok: true });
-});
-
-app.use((err, req, res, next) => {
-    if (err instanceof multer.MulterError) {
-        const message = err.code === "LIMIT_FILE_SIZE"
-            ? "Cover is too big (max 1 MB)"
-            : err.message;
-        return res.status(400).json({ error: message });
-    }
-    console.error(err);
-    res.status(500).json({ error: "Server error", message: "Lỗi máy chủ, hãy thử lại sau." });
-});
-
-const PORT = process.env.PORT || 3000;
-
-initDb()
-    .then(() => {
-        app.listen(PORT, () => {
-            console.log("Server running on port " + PORT);
+                window.location.href = "/index.html";
+            } catch (err) {
+                alert("Không kết nối được tới máy chủ.");
+                deleteButton.disabled = false;
+            }
         });
-    })
-    .catch(err => {
-        console.error("Không kết nối được database:", err.message);
-        process.exit(1);
-    });
+    }
+}
 
-// test
+loadBook(bookId);
