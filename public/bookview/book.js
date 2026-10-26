@@ -4,9 +4,6 @@ const bookId = bookParams.get("id");
 // khu vực nhận sách: hiện nút / thông báo tuỳ người xem là ai
 function setupRequestBox(book) {
     const button = document.querySelector("#request-button");
-    const form = document.querySelector("#request-form");
-    const closeButton = document.querySelector("#request-close");
-    const messageInput = document.querySelector("#request-message");
     const status = document.querySelector("#request-status");
     const link = document.querySelector("#request-link");
 
@@ -17,8 +14,7 @@ function setupRequestBox(book) {
 
     // chính người đăng
     if (book.isOwner) {
-        say("Đây là sách bạn đăng. Người muốn nhận sẽ gửi yêu cầu cho bạn.");
-        link.textContent = "Xem yêu cầu nhận sách →";
+        say("Đây là sách bạn đăng. Người muốn nhận sẽ gửi yêu cầu, bạn chọn nơi trao sách trong mục Thông báo.");
         link.hidden = false;
         return;
     }
@@ -48,51 +44,32 @@ function setupRequestBox(book) {
     // được phép xin: hiện nút Nhận sách
     button.hidden = false;
 
-    button.addEventListener("click", () => {
-        button.hidden = true;
-        form.hidden = false;
-        messageInput.focus();
-    });
+    button.addEventListener("click", async () => {
+        if (!confirm("Gửi yêu cầu nhận sách \"" + book.title + "\" cho người đăng?")) return;
 
-    closeButton.addEventListener("click", () => {
-        form.hidden = true;
-        button.hidden = false;
-        say("");
-    });
-
-    form.addEventListener("submit", async (event) => {
-        event.preventDefault();
-
-        const message = messageInput.value.trim();
-        if (!message) {
-            say("Hãy ghi cách để người đăng liên lạc với bạn.", true);
-            return;
-        }
-
-        const submit = form.querySelector("button[type=submit]");
-        submit.disabled = true;
+        button.disabled = true;
         say("Đang gửi...");
 
         try {
             const res = await fetch("/api/books/" + book.id + "/request", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ message })
+                body: "{}"
             });
             const data = await res.json().catch(() => ({}));
 
             if (!res.ok) {
                 say(data.error || "Không gửi được yêu cầu.", true);
-                submit.disabled = false;
+                button.disabled = false;
                 return;
             }
 
-            form.hidden = true;
-            say("Đã gửi yêu cầu! Hãy chờ người đăng đồng ý.");
+            button.hidden = true;
+            say("Đã gửi yêu cầu! Khi người đăng đồng ý, nơi nhận sách sẽ hiện trong mục Thông báo.");
             link.hidden = false;
         } catch (err) {
             say("Không kết nối được tới máy chủ.", true);
-            submit.disabled = false;
+            button.disabled = false;
         }
     });
 }

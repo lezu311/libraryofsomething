@@ -113,14 +113,56 @@
     font-size: 0.82rem;
 }
 
-.notify-quote {
+/* dòng nơi trao sách */
+.notify-pickup {
     margin: 10px 0 0 0;
     padding: 8px 12px;
-    background-color: var(--bg-section);
+    background-color: #e6f4ea;
+    color: #1e6b36;
     border-radius: 8px;
-    white-space: pre-wrap;
-    word-break: break-word;
-    font-size: 0.95rem;
+    font-weight: bold;
+}
+
+/* ===== chọn nơi trao sách ===== */
+.pickup-form {
+    margin-top: 12px;
+    padding: 10px 12px;
+    background-color: var(--bg-card);
+    border-radius: 8px;
+    border: 1px solid #d5dae3;
+}
+
+.pickup-title {
+    margin: 0 0 8px 0;
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+
+.pickup-options {
+    display: flex;
+    gap: 20px;
+}
+
+.pickup-option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.pickup-class {
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 10px;
+    padding: 8px 12px;
+    border: 1px solid #b9c2d0;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 1rem;
+}
+
+.pickup-class[hidden] {
+    display: none;
 }
 
 .notify-buttons {

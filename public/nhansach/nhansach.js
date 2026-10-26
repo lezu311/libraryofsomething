@@ -49,12 +49,17 @@ function makeCard(status, icon) {
     return { card, body };
 }
 
-async function act(url, button, confirmText) {
+async function act(url, button, confirmText, payload) {
     if (confirmText && !confirm(confirmText)) return;
 
     button.disabled = true;
     try {
-        const res = await fetch(url, { method: "POST" });
+        const options = { method: "POST" };
+        if (payload) {
+            options.headers = { "Content-Type": "application/json" };
+            options.body = JSON.stringify(payload);
+        }
+        const res = await fetch(url, options);
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
             alert(data.error || "Không thực hiện được.");
@@ -63,6 +68,53 @@ async function act(url, button, confirmText) {
         alert("Không kết nối được tới máy chủ.");
     }
     loadAll();
+}
+
+// một lựa chọn nơi nhận sách (nút tròn)
+function makeRadio(name, value, labelText, checked) {
+    const label = el("label", "pickup-option");
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.name = name;
+    input.value = value;
+    input.checked = checked;
+    label.append(input, el("span", "", labelText));
+    return label;
+}
+
+// khung chọn nơi nhận sách (hiện khi người đăng xử lý yêu cầu)
+function makePickupForm(r) {
+    const form = el("div", "pickup-form");
+    form.appendChild(el("p", "pickup-title", "Chọn nơi trao sách:"));
+
+    const name = "place-" + r.id;
+    const options = el("div", "pickup-options");
+    options.append(
+        makeRadio(name, "phong-doi", "Phòng Đội", true),
+        makeRadio(name, "lop", "Ở lớp", false)
+    );
+
+    const classInput = document.createElement("input");
+    classInput.type = "text";
+    classInput.className = "pickup-class";
+    classInput.placeholder = "Lớp nào? Ví dụ: 8A";
+    classInput.maxLength = 20;
+    classInput.hidden = true;
+
+    options.addEventListener("change", () => {
+        const place = form.querySelector("input[name=" + name + "]:checked").value;
+        classInput.hidden = place !== "lop";
+        if (place === "lop") classInput.focus();
+    });
+
+    form.append(options, classInput);
+
+    form.getChoice = () => ({
+        place: form.querySelector("input[name=" + name + "]:checked").value,
+        className: classInput.value.trim()
+    });
+
+    return form;
 }
 
 // thông báo: có người muốn nhận sách của mình
@@ -84,20 +136,32 @@ function incomingCard(r) {
 
     body.append(text, el("p", "notify-time", timeAgo(r.created_at)));
 
+    if (r.status === "accepted" && r.pickup) {
+        body.appendChild(el("p", "notify-pickup", "📍 Nơi trao sách: " + r.pickup));
+    }
+
     if (r.status === "pending") {
-        body.appendChild(el("p", "notify-quote", r.message));
+        const pickupForm = makePickupForm(r);
+        body.appendChild(pickupForm);
 
         const buttons = el("div", "notify-buttons");
 
         const accept = el("button", "btn-accept", "Đồng ý");
-        accept.addEventListener("click", () =>
+        accept.addEventListener("click", () => {
+            const choice = pickupForm.getChoice();
+            if (choice.place === "lop" && !choice.className) {
+                alert("Hãy ghi lớp nhận sách.");
+                return;
+            }
+            const where = choice.place === "lop" ? "Lớp " + choice.className : "Phòng Đội";
             act(
                 "/api/requests/" + r.id + "/accept",
                 accept,
-                "Đồng ý tặng sách \"" + r.book_title + "\" cho " + r.requester_name +
-                "? Sách sẽ bị xoá khỏi web."
-            )
-        );
+                "Tặng sách \"" + r.book_title + "\" cho " + r.requester_name +
+                ", trao tại " + where + "? Sách sẽ bị xoá khỏi web.",
+                choice
+            );
+        });
 
         const decline = el("button", "btn-decline", "Từ chối");
         decline.addEventListener("click", () =>
@@ -119,7 +183,7 @@ function outgoingCard(r) {
     if (r.status === "pending") {
         text.append("Bạn đã xin nhận sách ", bookLink(r), " của ", strong(r.owner_name), ", đang chờ đồng ý");
     } else if (r.status === "accepted") {
-        text.append(strong(r.owner_name), " đã đồng ý tặng bạn sách “" + r.book_title + "”. Họ sẽ liên lạc qua thông tin bạn để lại.");
+        text.append(strong(r.owner_name), " đã đồng ý tặng bạn sách “" + r.book_title + "”");
     } else if (r.status === "declined") {
         text.append(strong(r.owner_name), " đã từ chối yêu cầu nhận sách “" + r.book_title + "”");
     } else if (r.status === "cancelled") {
@@ -129,6 +193,10 @@ function outgoingCard(r) {
     }
 
     body.append(text, el("p", "notify-time", timeAgo(r.created_at)));
+
+    if (r.status === "accepted" && r.pickup) {
+        body.appendChild(el("p", "notify-pickup", "📍 Đến lấy sách tại: " + r.pickup));
+    }
 
     if (r.status === "pending") {
         const buttons = el("div", "notify-buttons");

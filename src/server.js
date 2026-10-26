@@ -6,14 +6,17 @@ const { Pool } = require("pg");
 
 const app = express();
 
+// Render đứng sau proxy: cần để req.protocol / req.secure đúng (https)
 app.set("trust proxy", true);
 
+// ---------- kết nối database ----------
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
     console.error("Thiếu biến môi trường DATABASE_URL (xem hướng dẫn nối database).");
     process.exit(1);
 }
 
+// Internal URL của Render không cần SSL, External URL (có render.com) thì cần
 const useSsl = DATABASE_URL.includes("render.com") || process.env.PGSSL === "true";
 const pool = new Pool({
     connectionString: DATABASE_URL,
@@ -43,6 +46,7 @@ async function initDb() {
             created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
         )
     `);
+    // yêu cầu nhận sách. status: pending | accepted | declined | cancelled | closed
     await pool.query(`
         CREATE TABLE IF NOT EXISTS requests (
             id             SERIAL PRIMARY KEY,
@@ -52,22 +56,27 @@ async function initDb() {
             owner_name     TEXT NOT NULL,
             requester      TEXT NOT NULL,
             requester_name TEXT NOT NULL,
-            message        TEXT NOT NULL,
+            message        TEXT NOT NULL DEFAULT '',
             status         TEXT NOT NULL DEFAULT 'pending',
             created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
         )
     `);
+    // nơi lấy sách do người đăng chọn khi đồng ý (Phòng Đội / Lớp ...)
+    await pool.query("ALTER TABLE requests ADD COLUMN IF NOT EXISTS pickup TEXT");
+    // mỗi người chỉ có 1 yêu cầu đang chờ cho mỗi cuốn sách
     await pool.query(`
         CREATE UNIQUE INDEX IF NOT EXISTS one_pending_request
         ON requests (book_id, requester) WHERE status = 'pending'
     `);
 }
 
+// quản trị viên: xoá được mọi sách. Ví dụ ADMIN_USERS=tin,admin
 const ADMIN_USERS = (process.env.ADMIN_USERS || "")
     .split(",")
     .map(s => s.trim().toLowerCase())
     .filter(Boolean);
 
+// ---------- mật khẩu ----------
 function hashPassword(password, salt) {
     return crypto.scryptSync(password, salt, 64).toString("hex");
 }
@@ -78,8 +87,9 @@ function checkPassword(password, user) {
     return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
-const SESSION_MS = 7 * 24 * 60 * 60 * 1000;
-const sessions = new Map();
+// ---------- sessions (lưu trong bộ nhớ: deploy lại thì phải đăng nhập lại) ----------
+const SESSION_MS = 7 * 24 * 60 * 60 * 1000; // 7 ngày
+const sessions = new Map(); // token -> { username, fullname, expires }
 
 function parseCookies(req) {
     const out = {};
@@ -115,6 +125,7 @@ function startSession(req, res, user) {
     );
 }
 
+// chặn người chưa đăng nhập
 function requireLogin(req, res, next) {
     if (!getSession(req)) {
         return res.status(401).json({ error: "Bạn cần đăng nhập" });
@@ -122,6 +133,8 @@ function requireLogin(req, res, next) {
     next();
 }
 
+// ---------- sách ----------
+// được xoá: quản trị viên, hoặc chính người đã đăng cuốn đó
 function canDelete(req, book) {
     const s = getSession(req);
     if (!s) return false;
@@ -129,11 +142,13 @@ function canDelete(req, book) {
     return Boolean(book.owner) && book.owner === s.username;
 }
 
+// tên file ảnh bìa gửi cho trình duyệt (vd "5.png"); ảnh thật nằm trong database
 function coverName(row) {
     if (!row.cover_type) return null;
     return row.id + (row.cover_type === "image/png" ? ".png" : ".jpg");
 }
 
+// dữ liệu gửi ra ngoài (không lộ owner)
 function publicBook(row) {
     return {
         id: row.id,
@@ -145,6 +160,7 @@ function publicBook(row) {
     };
 }
 
+// ---------- upload (giữ ảnh trong bộ nhớ rồi ghi vào database) ----------
 const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 1024 * 1024 }, // 1 MB
@@ -154,8 +170,10 @@ const upload = multer({
     }
 });
 
+// ---------- middleware ----------
 app.use(express.json());
 
+// file cũ, không còn dùng nhưng vẫn chặn cho chắc
 app.use("/dangnhap_dangki/users.json", (req, res) => {
     res.status(404).end();
 });
@@ -177,9 +195,11 @@ app.get("/covers/:file", async (req, res) => {
 
 app.use(express.static(path.join(__dirname, "..", "public")));
 
+// ---------- đường dẫn ngắn ----------
 app.get("/dangki", (req, res) => res.redirect("/dangnhap_dangki/dangki.html"));
 app.get("/dangnhap", (req, res) => res.redirect("/dangnhap_dangki/dangnhap.html"));
 
+// ---------- sitemap cho Google ----------
 app.get("/sitemap.xml", async (req, res) => {
     const { rows } = await pool.query("SELECT id FROM books ORDER BY id");
     const base = req.protocol + "://" + req.get("host");
@@ -193,6 +213,7 @@ app.get("/sitemap.xml", async (req, res) => {
     res.type("application/xml").send(xml);
 });
 
+// ---------- auth routes ----------
 app.post("/api/register", async (req, res) => {
     const fullname = String(req.body.fullname || "").trim();
     const username = String(req.body.username || "").trim().toLowerCase();
@@ -218,7 +239,7 @@ app.post("/api/register", async (req, res) => {
             [username, fullname, salt, hashPassword(password, salt)]
         );
     } catch (err) {
-        if (err.code === "23505") {
+        if (err.code === "23505") { // trùng khoá chính
             return res.status(409).json({ message: "Tên đăng nhập đã tồn tại." });
         }
         throw err;
@@ -253,6 +274,7 @@ app.get("/api/me", async (req, res) => {
     const s = getSession(req);
     if (!s) return res.status(401).json({ error: "Chưa đăng nhập" });
 
+    // số yêu cầu nhận sách đang chờ mình xử lý (hiện trên nút "Thông báo")
     const { rows } = await pool.query(
         "SELECT count(*)::int AS n FROM requests WHERE owner = $1 AND status = 'pending'",
         [s.username]
@@ -261,6 +283,7 @@ app.get("/api/me", async (req, res) => {
     res.json({ username: s.username, fullname: s.fullname, pendingRequests: rows[0].n });
 });
 
+// xoá tài khoản (phải nhập lại mật khẩu)
 app.delete("/api/account", requireLogin, async (req, res) => {
     const s = getSession(req);
     const password = String(req.body.password || "");
@@ -275,15 +298,18 @@ app.delete("/api/account", requireLogin, async (req, res) => {
     try {
         await client.query("BEGIN");
 
+        // yêu cầu đang chờ gửi tới mình thì đóng lại (mình không còn để trả lời)
         await client.query(
             "UPDATE requests SET status = 'closed' WHERE owner = $1 AND status = 'pending'",
             [s.username]
         );
+        // yêu cầu mình đã gửi thì xoá luôn
         await client.query("DELETE FROM requests WHERE requester = $1", [s.username]);
 
         if (deleteBooks) {
             await client.query("DELETE FROM books WHERE owner = $1", [s.username]);
         } else {
+            // giữ sách nhưng bỏ chủ, để người đăng ký trùng tên sau này không nhận nhầm
             await client.query("UPDATE books SET owner = NULL WHERE owner = $1", [s.username]);
         }
         await client.query("DELETE FROM users WHERE username = $1", [s.username]);
@@ -295,6 +321,7 @@ app.delete("/api/account", requireLogin, async (req, res) => {
         client.release();
     }
 
+    // đăng xuất mọi phiên của tài khoản này
     for (const [token, sess] of sessions) {
         if (sess.username === s.username) sessions.delete(token);
     }
@@ -303,6 +330,7 @@ app.delete("/api/account", requireLogin, async (req, res) => {
     res.json({ ok: true });
 });
 
+// ---------- book routes ----------
 app.get("/api/book", async (req, res) => {
     const id = Number(req.query.id);
     if (!Number.isInteger(id)) {
@@ -320,6 +348,7 @@ app.get("/api/book", async (req, res) => {
     const book = rows[0];
     const s = getSession(req);
 
+    // mình đã gửi yêu cầu nhận cuốn này và đang chờ chưa?
     let myRequest = null;
     if (s) {
         const r = await pool.query(
@@ -355,6 +384,7 @@ app.get("/api/books", async (req, res) => {
     res.json(rows.map(publicBook));
 });
 
+// add a book (chỉ người đã đăng nhập)
 app.post("/api/books", requireLogin, upload.single("cover"), async (req, res) => {
     const { title, author, category, description } = req.body;
 
@@ -381,6 +411,7 @@ app.post("/api/books", requireLogin, upload.single("cover"), async (req, res) =>
     res.status(201).json(publicBook(rows[0]));
 });
 
+// xoá sách (chủ sách hoặc quản trị viên)
 app.delete("/api/books/:id", requireLogin, async (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) {
@@ -396,6 +427,7 @@ app.delete("/api/books/:id", requireLogin, async (req, res) => {
         return res.status(403).json({ error: "Bạn không có quyền xoá sách này" });
     }
 
+    // các yêu cầu đang chờ cho cuốn này không còn ý nghĩa nữa
     await pool.query(
         "UPDATE requests SET status = 'closed' WHERE book_id = $1 AND status = 'pending'",
         [id]
@@ -404,19 +436,15 @@ app.delete("/api/books/:id", requireLogin, async (req, res) => {
     res.json({ ok: true });
 });
 
+// ---------- yêu cầu nhận sách ----------
+
+// gửi yêu cầu nhận một cuốn sách (không cần ghi gì thêm)
 app.post("/api/books/:id/request", requireLogin, async (req, res) => {
     const s = getSession(req);
     const id = Number(req.params.id);
-    const message = String(req.body.message || "").trim();
 
     if (!Number.isInteger(id)) {
         return res.status(404).json({ error: "Không tìm thấy sách" });
-    }
-    if (!message) {
-        return res.status(400).json({ error: "Hãy ghi cách để người đăng liên lạc với bạn." });
-    }
-    if (message.length > 300) {
-        return res.status(400).json({ error: "Lời nhắn tối đa 300 ký tự." });
     }
 
     const { rows } = await pool.query("SELECT id, title, owner FROM books WHERE id = $1", [id]);
@@ -440,8 +468,8 @@ app.post("/api/books/:id/request", requireLogin, async (req, res) => {
         await pool.query(
             `INSERT INTO requests
                 (book_id, book_title, owner, owner_name, requester, requester_name, message)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-            [id, book.title, book.owner, ownerRow.rows[0].fullname, s.username, s.fullname, message]
+             VALUES ($1, $2, $3, $4, $5, $6, '')`,
+            [id, book.title, book.owner, ownerRow.rows[0].fullname, s.username, s.fullname]
         );
     } catch (err) {
         if (err.code === "23505") {
@@ -453,10 +481,11 @@ app.post("/api/books/:id/request", requireLogin, async (req, res) => {
     res.status(201).json({ ok: true });
 });
 
+// thông báo: yêu cầu người khác gửi tới mình
 app.get("/api/requests/incoming", requireLogin, async (req, res) => {
     const s = getSession(req);
     const { rows } = await pool.query(
-        `SELECT id, book_id, book_title, requester_name, message, status, created_at
+        `SELECT id, book_id, book_title, requester_name, status, pickup, created_at
          FROM requests
          WHERE owner = $1
          ORDER BY (status = 'pending') DESC, created_at DESC
@@ -466,10 +495,11 @@ app.get("/api/requests/incoming", requireLogin, async (req, res) => {
     res.json(rows);
 });
 
+// thông báo: yêu cầu mình đã gửi đi
 app.get("/api/requests/outgoing", requireLogin, async (req, res) => {
     const s = getSession(req);
     const { rows } = await pool.query(
-        `SELECT id, book_id, book_title, owner_name, status, created_at
+        `SELECT id, book_id, book_title, owner_name, status, pickup, created_at
          FROM requests
          WHERE requester = $1
          ORDER BY created_at DESC
@@ -479,11 +509,30 @@ app.get("/api/requests/outgoing", requireLogin, async (req, res) => {
     res.json(rows);
 });
 
+// người đăng ĐỒNG Ý và chọn nơi lấy sách: sách bị xoá khỏi web
 app.post("/api/requests/:id/accept", requireLogin, async (req, res) => {
     const s = getSession(req);
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) {
         return res.status(404).json({ error: "Không tìm thấy yêu cầu" });
+    }
+
+    // nơi lấy sách: Phòng Đội hoặc ở lớp
+    const place = String(req.body.place || "");
+    const className = String(req.body.className || "").trim();
+    let pickup;
+    if (place === "phong-doi") {
+        pickup = "Phòng Đội";
+    } else if (place === "lop") {
+        if (!className) {
+            return res.status(400).json({ error: "Hãy ghi lớp nhận sách." });
+        }
+        if (className.length > 20) {
+            return res.status(400).json({ error: "Tên lớp tối đa 20 ký tự." });
+        }
+        pickup = "Lớp " + className;
+    } else {
+        return res.status(400).json({ error: "Hãy chọn nơi nhận sách." });
     }
 
     const client = await pool.connect();
@@ -502,7 +551,10 @@ app.post("/api/requests/:id/accept", requireLogin, async (req, res) => {
             return res.status(409).json({ error: "Yêu cầu này đã được xử lý rồi." });
         }
 
-        await client.query("UPDATE requests SET status = 'accepted' WHERE id = $1", [id]);
+        await client.query(
+            "UPDATE requests SET status = 'accepted', pickup = $2 WHERE id = $1",
+            [id, pickup]
+        );
         // những người khác xin cùng cuốn này: đóng lại
         await client.query(
             "UPDATE requests SET status = 'closed' WHERE book_id = $1 AND status = 'pending' AND id <> $2",
@@ -521,6 +573,7 @@ app.post("/api/requests/:id/accept", requireLogin, async (req, res) => {
     }
 });
 
+// người đăng TỪ CHỐI
 app.post("/api/requests/:id/decline", requireLogin, async (req, res) => {
     const s = getSession(req);
     const id = Number(req.params.id);
@@ -538,6 +591,7 @@ app.post("/api/requests/:id/decline", requireLogin, async (req, res) => {
     res.json({ ok: true });
 });
 
+// người xin tự HUỶ yêu cầu của mình
 app.post("/api/requests/:id/cancel", requireLogin, async (req, res) => {
     const s = getSession(req);
     const id = Number(req.params.id);
@@ -566,6 +620,7 @@ app.use((err, req, res, next) => {
     res.status(500).json({ error: "Server error", message: "Lỗi máy chủ, hãy thử lại sau." });
 });
 
+// ---------- start ----------
 const PORT = process.env.PORT || 3000;
 
 initDb()
