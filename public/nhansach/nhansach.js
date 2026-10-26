@@ -1,36 +1,52 @@
 const incomingBox = document.querySelector("#incoming-list");
 const outgoingBox = document.querySelector("#outgoing-list");
 
-const STATUS_TEXT = {
-    pending: "Đang chờ",
-    accepted: "Đã đồng ý",
-    declined: "Bị từ chối",
-    cancelled: "Đã huỷ",
-    closed: "Sách không còn"
+const ICONS = {
+    pending: "⏳",
+    accepted: "✅",
+    declined: "❌",
+    cancelled: "⚪",
+    closed: "📕"
 };
 
-function formatDate(value) {
+// "vừa xong", "5 phút trước", "2 giờ trước", "3 ngày trước"
+function timeAgo(value) {
+    const seconds = Math.floor((Date.now() - new Date(value).getTime()) / 1000);
+    if (seconds < 60) return "Vừa xong";
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return minutes + " phút trước";
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return hours + " giờ trước";
+    const days = Math.floor(hours / 24);
+    if (days < 30) return days + " ngày trước";
     return new Date(value).toLocaleDateString("vi-VN");
 }
 
-function makeTag(status) {
-    const tag = document.createElement("span");
-    tag.className = "status-tag status-" + status;
-    tag.textContent = STATUS_TEXT[status] || status;
-    return tag;
+function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
 }
 
-function makeTitle(r) {
-    const h3 = document.createElement("h3");
-    if (r.status === "pending") {
-        const a = document.createElement("a");
-        a.href = "/bookview/view.html?id=" + r.book_id;
-        a.textContent = r.book_title;
-        h3.appendChild(a);
-    } else {
-        h3.textContent = r.book_title;
-    }
-    return h3;
+function strong(text) {
+    return el("strong", "", text);
+}
+
+// link tới sách (chỉ khi sách còn)
+function bookLink(r) {
+    const a = el("a", "", "“" + r.book_title + "”");
+    a.href = "/bookview/view.html?id=" + r.book_id;
+    return a;
+}
+
+// khung thông báo chung: biểu tượng + nội dung
+function makeCard(status, icon) {
+    const card = el("div", "notify-card is-" + status);
+    const iconBox = el("div", "notify-icon", icon);
+    const body = el("div", "notify-body");
+    card.append(iconBox, body);
+    return { card, body };
 }
 
 async function act(url, button, confirmText) {
@@ -49,29 +65,31 @@ async function act(url, button, confirmText) {
     loadAll();
 }
 
-// yêu cầu gửi tới mình
+// thông báo: có người muốn nhận sách của mình
 function incomingCard(r) {
-    const card = document.createElement("div");
-    card.className = "request-card";
+    const { card, body } = makeCard(r.status, r.status === "pending" ? "📩" : ICONS[r.status]);
 
-    const meta = document.createElement("p");
-    meta.className = "request-meta";
-    meta.textContent = r.requester_name + " muốn nhận sách này · " + formatDate(r.created_at) + " · ";
-    meta.appendChild(makeTag(r.status));
+    const text = el("p", "notify-text");
+    if (r.status === "pending") {
+        text.append(strong(r.requester_name), " muốn nhận sách ", bookLink(r));
+    } else if (r.status === "accepted") {
+        text.append("Bạn đã đồng ý tặng sách “" + r.book_title + "” cho ", strong(r.requester_name));
+    } else if (r.status === "declined") {
+        text.append("Bạn đã từ chối ", strong(r.requester_name), " nhận sách “" + r.book_title + "”");
+    } else if (r.status === "cancelled") {
+        text.append(strong(r.requester_name), " đã huỷ yêu cầu nhận sách “" + r.book_title + "”");
+    } else {
+        text.append("Sách “" + r.book_title + "” không còn trên web (yêu cầu của ", strong(r.requester_name), " đã đóng)");
+    }
 
-    const message = document.createElement("p");
-    message.className = "request-message";
-    message.textContent = r.message;
-
-    card.append(makeTitle(r), meta, message);
+    body.append(text, el("p", "notify-time", timeAgo(r.created_at)));
 
     if (r.status === "pending") {
-        const buttons = document.createElement("div");
-        buttons.className = "request-buttons";
+        body.appendChild(el("p", "notify-quote", r.message));
 
-        const accept = document.createElement("button");
-        accept.className = "btn-accept";
-        accept.textContent = "Đồng ý";
+        const buttons = el("div", "notify-buttons");
+
+        const accept = el("button", "btn-accept", "Đồng ý");
         accept.addEventListener("click", () =>
             act(
                 "/api/requests/" + r.id + "/accept",
@@ -81,69 +99,59 @@ function incomingCard(r) {
             )
         );
 
-        const decline = document.createElement("button");
-        decline.className = "btn-decline";
-        decline.textContent = "Từ chối";
+        const decline = el("button", "btn-decline", "Từ chối");
         decline.addEventListener("click", () =>
             act("/api/requests/" + r.id + "/decline", decline, "Từ chối yêu cầu này?")
         );
 
         buttons.append(accept, decline);
-        card.appendChild(buttons);
+        body.appendChild(buttons);
     }
 
     return card;
 }
 
-// yêu cầu mình đã gửi
+// thông báo: sách mình đã xin
 function outgoingCard(r) {
-    const card = document.createElement("div");
-    card.className = "request-card";
+    const { card, body } = makeCard(r.status, ICONS[r.status] || "📩");
 
-    const meta = document.createElement("p");
-    meta.className = "request-meta";
-    meta.textContent = "Người đăng: " + r.owner_name + " · " + formatDate(r.created_at) + " · ";
-    meta.appendChild(makeTag(r.status));
-
-    card.append(makeTitle(r), meta);
-
-    if (r.status === "accepted") {
-        const note = document.createElement("p");
-        note.className = "request-message";
-        note.textContent = "Người đăng đã đồng ý! Họ sẽ liên lạc với bạn qua thông tin bạn đã để lại.";
-        card.appendChild(note);
+    const text = el("p", "notify-text");
+    if (r.status === "pending") {
+        text.append("Bạn đã xin nhận sách ", bookLink(r), " của ", strong(r.owner_name), ", đang chờ đồng ý");
+    } else if (r.status === "accepted") {
+        text.append(strong(r.owner_name), " đã đồng ý tặng bạn sách “" + r.book_title + "”. Họ sẽ liên lạc qua thông tin bạn để lại.");
+    } else if (r.status === "declined") {
+        text.append(strong(r.owner_name), " đã từ chối yêu cầu nhận sách “" + r.book_title + "”");
+    } else if (r.status === "cancelled") {
+        text.append("Bạn đã huỷ yêu cầu nhận sách “" + r.book_title + "”");
+    } else {
+        text.append("Sách “" + r.book_title + "” không còn trên web");
     }
 
-    if (r.status === "pending") {
-        const buttons = document.createElement("div");
-        buttons.className = "request-buttons";
+    body.append(text, el("p", "notify-time", timeAgo(r.created_at)));
 
-        const cancel = document.createElement("button");
-        cancel.className = "btn-cancel";
-        cancel.textContent = "Huỷ yêu cầu";
+    if (r.status === "pending") {
+        const buttons = el("div", "notify-buttons");
+        const cancel = el("button", "btn-cancel", "Huỷ yêu cầu");
         cancel.addEventListener("click", () =>
             act("/api/requests/" + r.id + "/cancel", cancel, "Huỷ yêu cầu này?")
         );
-
         buttons.appendChild(cancel);
-        card.appendChild(buttons);
+        body.appendChild(buttons);
     }
 
     return card;
 }
 
-function render(box, list, makeCard, emptyText) {
+function render(box, list, makeOne, emptyText) {
     box.replaceChildren();
 
     if (!list.length) {
-        const p = document.createElement("p");
-        p.className = "empty";
-        p.textContent = emptyText;
-        box.appendChild(p);
+        box.appendChild(el("p", "empty", emptyText));
         return;
     }
 
-    for (const r of list) box.appendChild(makeCard(r));
+    for (const r of list) box.appendChild(makeOne(r));
 }
 
 async function loadAll() {
@@ -160,7 +168,7 @@ async function loadAll() {
         }
 
         render(incomingBox, await inRes.json(), incomingCard, "Chưa có ai xin nhận sách của bạn.");
-        render(outgoingBox, await outRes.json(), outgoingCard, "Bạn chưa gửi yêu cầu nào.");
+        render(outgoingBox, await outRes.json(), outgoingCard, "Bạn chưa xin nhận sách nào.");
     } catch (err) {
         incomingBox.textContent = "Không kết nối được tới máy chủ.";
         outgoingBox.textContent = "";

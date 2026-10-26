@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yêu cầu nhận sách - BookShare</title>
+    <title>Thông báo - BookShare</title>
     <link rel="stylesheet" href="../bookview/style.css">
     <link rel="stylesheet" href="nhansach.css">
     <script src="nhansach.js" defer></script>
@@ -23,15 +23,17 @@
     </header>
 
     <section class="book-view">
-        <div class="requests-wrap">
+        <div class="notify-wrap">
             <a class="back-home" href="/index.html">← Về trang chủ</a>
 
-            <h2>Yêu cầu nhận sách của tôi đăng</h2>
-            <p class="hint">Bấm <b>Đồng ý</b> thì sách sẽ bị xoá khỏi web. Hãy liên lạc với người nhận qua thông tin họ để lại.</p>
-            <div id="incoming-list" class="request-list">Đang tải...</div>
+            <h2 class="notify-heading">🔔 Thông báo</h2>
 
-            <h2>Yêu cầu tôi đã gửi</h2>
-            <div id="outgoing-list" class="request-list">Đang tải...</div>
+            <h3 class="notify-section">Người muốn nhận sách của bạn</h3>
+            <p class="hint">Bấm <b>Đồng ý</b> thì sách sẽ bị xoá khỏi web. Hãy liên lạc với người nhận qua thông tin họ để lại.</p>
+            <div id="incoming-list" class="notify-list">Đang tải...</div>
+
+            <h3 class="notify-section">Sách bạn đã xin nhận</h3>
+            <div id="outgoing-list" class="notify-list">Đang tải...</div>
         </div>
     </section>
 </body>

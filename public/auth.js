@@ -28,16 +28,16 @@ fetch('/api/me')
 
         chip.append(avatar, name);
 
-        // nút Yêu cầu (kèm số yêu cầu đang chờ)
-        const requests = document.createElement('a');
-        requests.className = 'login-link';
-        requests.href = 'nhansach/nhansach.html';
-        requests.textContent = 'Yêu cầu';
+        // nút Thông báo (kèm số thông báo đang chờ xử lý)
+        const notify = document.createElement('a');
+        notify.className = 'login-link';
+        notify.href = 'nhansach/nhansach.html';
+        notify.textContent = 'Thông báo';
         if (me.pendingRequests > 0) {
             const badge = document.createElement('span');
             badge.className = 'request-badge';
             badge.textContent = me.pendingRequests;
-            requests.appendChild(badge);
+            notify.appendChild(badge);
         }
 
         const out = document.createElement('a');
@@ -51,6 +51,6 @@ fetch('/api/me')
         });
 
         box.prepend(chip);
-        box.append(requests, out);
+        box.append(notify, out);
     })
     .catch(() => {});
