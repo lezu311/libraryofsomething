@@ -1,6 +1,14 @@
 const incomingBox = document.querySelector("#incoming-list");
 const outgoingBox = document.querySelector("#outgoing-list");
 
+const ICONS = {
+    pending: "⏳",
+    accepted: "✅",
+    declined: "❌",
+    cancelled: "⚪",
+    closed: "📕"
+};
+
 function timeAgo(value) {
     const seconds = Math.floor((Date.now() - new Date(value).getTime()) / 1000);
     if (seconds < 60) return "Vừa xong";
@@ -56,11 +64,12 @@ async function act(url, button, confirmText, payload) {
             alert(data.error || "Không thực hiện được.");
         }
     } catch (err) {
-        alert("chưa có người muốn xin sách của bạn");
+        alert("Không kết nối được tới máy chủ.");
     }
     loadAll();
 }
 
+// một lựa chọn nơi nhận sách (nút tròn)
 function makeRadio(name, value, labelText, checked) {
     const label = el("label", "pickup-option");
     const input = document.createElement("input");
@@ -72,6 +81,7 @@ function makeRadio(name, value, labelText, checked) {
     return label;
 }
 
+// khung chọn nơi nhận sách (hiện khi người đăng xử lý yêu cầu)
 function makePickupForm(r) {
     const form = el("div", "pickup-form");
     form.appendChild(el("p", "pickup-title", "Chọn nơi trao sách:"));
@@ -106,6 +116,7 @@ function makePickupForm(r) {
     return form;
 }
 
+// thông báo: có người muốn nhận sách của mình
 function incomingCard(r) {
     const { card, body } = makeCard(r.status, r.status === "pending" ? "📩" : ICONS[r.status]);
 
@@ -217,15 +228,21 @@ async function loadAll() {
             fetch("/api/requests/outgoing")
         ]);
 
+        // chưa đăng nhập thì đưa về trang đăng nhập
         if (inRes.status === 401 || outRes.status === 401) {
             window.location.href = "/dangnhap_dangki/dangnhap.html";
             return;
         }
 
+        if (!inRes.ok || !outRes.ok) {
+            throw new Error("Máy chủ trả lỗi " + (inRes.ok ? outRes.status : inRes.status));
+        }
+
         render(incomingBox, await inRes.json(), incomingCard, "Chưa có ai xin nhận sách của bạn.");
         render(outgoingBox, await outRes.json(), outgoingCard, "Bạn chưa xin nhận sách nào.");
     } catch (err) {
-        incomingBox.textContent = "Không kết nối được tới máy chủ.";
+        console.error(err);
+        incomingBox.textContent = "Không tải được thông báo (" + err.message + "). Thử tải lại trang sau ít phút.";
         outgoingBox.textContent = "";
     }
 }
