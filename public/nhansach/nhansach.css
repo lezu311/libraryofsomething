@@ -12,6 +12,14 @@
     display: none !important;
 }
 
+/* tính padding vào chiều rộng, để dòng thư không bị tràn ra ngoài khung */
+.mail,
+.mail *,
+.mail *::before,
+.mail *::after {
+    box-sizing: border-box;
+}
+
 /* ===== biểu tượng ===== */
 .ico {
     display: block;
@@ -200,6 +208,7 @@
     align-items: center;
     gap: 12px;
     width: 100%;
+    min-width: 0;
     padding: 10px 16px;
     border: none;
     border-bottom: 1px solid #eef0f4;
@@ -247,7 +256,7 @@
 }
 
 .mail-from {
-    flex: 0 0 180px;
+    flex: 0 0 150px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -534,7 +543,6 @@
 
 .pickup-class {
     width: 100%;
-    box-sizing: border-box;
     margin-top: 12px;
     padding: 9px 12px;
     border: 1px solid #b9c2d0;
