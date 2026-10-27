@@ -23,16 +23,47 @@
     </header>
 
     <section class="book-view">
-        <div class="notify-wrap">
-            <a class="back-home" href="/index.html">← Về trang chủ</a>
+        <div class="mail">
 
-            <h2 class="notify-heading">Thông báo</h2>
+            <!-- menu bên trái -->
+            <aside class="mail-side">
+                <div class="mail-brand">
+                    <span data-icon="mail"></span>
+                    <span>Thông báo</span>
+                </div>
 
-            <h3 class="notify-section">Người muốn nhận sách của bạn</h3>
-            <div id="incoming-list" class="notify-list">Đang tải...</div>
+                <nav class="mail-tabs">
+                    <button type="button" id="tab-inbox" class="mail-tab active">
+                        <span data-icon="inbox"></span>
+                        <span class="mail-tab-label">Hộp thư đến</span>
+                        <span id="count-inbox" class="mail-count" hidden></span>
+                    </button>
+                    <button type="button" id="tab-sent" class="mail-tab">
+                        <span data-icon="send"></span>
+                        <span class="mail-tab-label">Đã gửi</span>
+                        <span id="count-sent" class="mail-count" hidden></span>
+                    </button>
+                </nav>
 
-            <h3 class="notify-section">Sách bạn đã xin nhận</h3>
-            <div id="outgoing-list" class="notify-list">Đang tải...</div>
+                <a class="mail-home" href="/index.html">
+                    <span data-icon="home"></span>
+                    <span>Trang chủ</span>
+                </a>
+            </aside>
+
+            <!-- khung chính -->
+            <main class="mail-main">
+                <div id="mail-toolbar" class="mail-toolbar">
+                    <h2 id="mail-title">Hộp thư đến</h2>
+                    <button type="button" id="mail-refresh" class="icon-btn" title="Tải lại" aria-label="Tải lại">
+                        <span data-icon="refresh"></span>
+                    </button>
+                </div>
+
+                <div id="mail-list" class="mail-list">Đang tải...</div>
+                <article id="mail-detail" class="mail-detail" hidden></article>
+            </main>
+
         </div>
     </section>
 </body>

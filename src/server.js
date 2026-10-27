@@ -63,6 +63,11 @@ async function initDb() {
     `);
     // nơi lấy sách do người đăng chọn khi đồng ý (Phòng Đội / Lớp ...)
     await pool.query("ALTER TABLE requests ADD COLUMN IF NOT EXISTS pickup TEXT");
+    // xoá thư: mỗi bên xoá phần của mình, cả hai xoá hết thì mới xoá hẳn
+    await pool.query("ALTER TABLE requests ADD COLUMN IF NOT EXISTS owner_deleted BOOLEAN NOT NULL DEFAULT false");
+    await pool.query("ALTER TABLE requests ADD COLUMN IF NOT EXISTS requester_deleted BOOLEAN NOT NULL DEFAULT false");
+    // người xin đã mở xem kết quả chưa (để in đậm thư mới)
+    await pool.query("ALTER TABLE requests ADD COLUMN IF NOT EXISTS requester_seen BOOLEAN NOT NULL DEFAULT false");
     // mỗi người chỉ có 1 yêu cầu đang chờ cho mỗi cuốn sách
     await pool.query(`
         CREATE UNIQUE INDEX IF NOT EXISTS one_pending_request
@@ -436,7 +441,7 @@ app.delete("/api/books/:id", requireLogin, async (req, res) => {
     res.json({ ok: true });
 });
 
-// ---------- yêu cầu nhận sách ----------
+// ---------- yêu cầu nhận sách / thông báo ----------
 
 // gửi yêu cầu nhận một cuốn sách (không cần ghi gì thêm)
 app.post("/api/books/:id/request", requireLogin, async (req, res) => {
@@ -481,32 +486,100 @@ app.post("/api/books/:id/request", requireLogin, async (req, res) => {
     res.status(201).json({ ok: true });
 });
 
-// thông báo: yêu cầu người khác gửi tới mình
+// hộp thư đến: yêu cầu người khác gửi tới mình (trừ thư mình đã xoá)
 app.get("/api/requests/incoming", requireLogin, async (req, res) => {
     const s = getSession(req);
     const { rows } = await pool.query(
         `SELECT id, book_id, book_title, requester_name, status, pickup, created_at
          FROM requests
-         WHERE owner = $1
+         WHERE owner = $1 AND owner_deleted = false
          ORDER BY (status = 'pending') DESC, created_at DESC
-         LIMIT 100`,
+         LIMIT 200`,
         [s.username]
     );
     res.json(rows);
 });
 
-// thông báo: yêu cầu mình đã gửi đi
+// đã gửi: yêu cầu mình đã gửi đi (trừ thư mình đã xoá)
 app.get("/api/requests/outgoing", requireLogin, async (req, res) => {
     const s = getSession(req);
     const { rows } = await pool.query(
-        `SELECT id, book_id, book_title, owner_name, status, pickup, created_at
+        `SELECT id, book_id, book_title, owner_name, status, pickup, requester_seen, created_at
          FROM requests
-         WHERE requester = $1
+         WHERE requester = $1 AND requester_deleted = false
          ORDER BY created_at DESC
-         LIMIT 100`,
+         LIMIT 200`,
         [s.username]
     );
     res.json(rows);
+});
+
+// người xin đã mở xem thư (để không còn in đậm)
+app.post("/api/requests/:id/seen", requireLogin, async (req, res) => {
+    const s = getSession(req);
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+        return res.status(404).json({ error: "Không tìm thấy thư" });
+    }
+
+    await pool.query(
+        "UPDATE requests SET requester_seen = true WHERE id = $1 AND requester = $2",
+        [id, s.username]
+    );
+    res.json({ ok: true });
+});
+
+// xoá một thư (chỉ phía mình; thư đang chờ thì chưa xoá được)
+app.delete("/api/requests/:id", requireLogin, async (req, res) => {
+    const s = getSession(req);
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+        return res.status(404).json({ error: "Không tìm thấy thư" });
+    }
+
+    const { rows } = await pool.query(
+        "SELECT id, owner, requester, status FROM requests WHERE id = $1",
+        [id]
+    );
+    const r = rows[0];
+    if (!r || (r.owner !== s.username && r.requester !== s.username)) {
+        return res.status(404).json({ error: "Không tìm thấy thư" });
+    }
+    if (r.status === "pending") {
+        return res.status(400).json({ error: "Thư đang chờ xử lý. Hãy trả lời hoặc huỷ yêu cầu trước khi xoá." });
+    }
+
+    const column = r.owner === s.username ? "owner_deleted" : "requester_deleted";
+    await pool.query("UPDATE requests SET " + column + " = true WHERE id = $1", [id]);
+    // cả hai bên đã xoá thì xoá hẳn khỏi database
+    await pool.query(
+        "DELETE FROM requests WHERE id = $1 AND owner_deleted AND requester_deleted",
+        [id]
+    );
+    res.json({ ok: true });
+});
+
+// xoá tất cả thư đã xử lý trong một hộp (?box=in hoặc ?box=out)
+app.delete("/api/requests", requireLogin, async (req, res) => {
+    const s = getSession(req);
+    const box = String(req.query.box || "");
+
+    if (box === "in") {
+        await pool.query(
+            "UPDATE requests SET owner_deleted = true WHERE owner = $1 AND status <> 'pending'",
+            [s.username]
+        );
+    } else if (box === "out") {
+        await pool.query(
+            "UPDATE requests SET requester_deleted = true WHERE requester = $1 AND status <> 'pending'",
+            [s.username]
+        );
+    } else {
+        return res.status(400).json({ error: "Thiếu thông tin hộp thư." });
+    }
+
+    await pool.query("DELETE FROM requests WHERE owner_deleted AND requester_deleted");
+    res.json({ ok: true });
 });
 
 // người đăng ĐỒNG Ý và chọn nơi lấy sách: sách bị xoá khỏi web
