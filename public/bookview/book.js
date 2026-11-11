@@ -1,7 +1,6 @@
 const bookParams = new URLSearchParams(window.location.search);
 const bookId = bookParams.get("id");
 
-// khu vực nhận sách: hiện nút / thông báo tuỳ người xem là ai
 function setupRequestBox(book) {
     const button = document.querySelector("#request-button");
     const status = document.querySelector("#request-status");
@@ -12,20 +11,17 @@ function setupRequestBox(book) {
         status.classList.toggle("error", Boolean(isError));
     }
 
-    // chính người đăng
     if (book.isOwner) {
         say("Đây là sách bạn đăng. Người muốn nhận sẽ gửi yêu cầu, bạn chọn nơi trao sách trong mục Thông báo.");
         link.hidden = false;
         return;
     }
 
-    // sách không có người đăng (sách cũ hoặc tài khoản đã xoá)
     if (!book.hasOwner) {
         say("Sách này không có người đăng nên chưa thể gửi yêu cầu nhận.");
         return;
     }
 
-    // chưa đăng nhập
     if (!book.loggedIn) {
         say("Đăng nhập để gửi yêu cầu nhận sách này.");
         link.textContent = "Đăng nhập →";

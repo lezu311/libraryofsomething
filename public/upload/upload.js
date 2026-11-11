@@ -9,7 +9,6 @@ const coverInput = document.querySelector("#cover");
 const coverPreview = document.querySelector("#cover-preview");
 const submitButton = form.querySelector(".submit-button");
 
-// show the chosen image before uploading
 coverInput.addEventListener("change", () => {
     const file = coverInput.files[0];
 
@@ -29,8 +28,6 @@ function showMessage(text, isError) {
 
 form.addEventListener("submit", async (event) => {
     event.preventDefault();
-
-    // quick check in the browser (the server checks again)
     const file = coverInput.files[0];
     if (file && file.size > 1024 * 1024) {
         showMessage("Cover is too big (max 1 MB)", true);
@@ -41,7 +38,6 @@ form.addEventListener("submit", async (event) => {
     showMessage("Saving...", false);
 
     try {
-        // no Content-Type header here: the browser sets it for files
         const res = await fetch("/api/books", {
             method: "POST",
             body: new FormData(form)
