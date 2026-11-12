@@ -511,7 +511,7 @@ function makePickupForm(r) {
     const name = "place-" + r.id;
     const options = el("div", "pickup-options");
     options.append(
-        makeRadio(name, "phong-doi", "Phòng Đội", true),
+        makeRadio(name, "phong-doi", "Phòng Thư viện", true),
         makeRadio(name, "lop", "Ở lớp", false)
     );
 
