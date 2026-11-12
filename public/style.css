@@ -32,6 +32,7 @@ body {
     color: var(--text-header);
 }
 
+/* khối bên phải, rộng bằng logo để tiêu đề nằm giữa */
 .header-actions {
     flex: 1;
     display: flex;
@@ -260,6 +261,8 @@ body {
     display: flex;
     flex-wrap: wrap;
     gap: 20px;
+    align-items: flex-start;
+    align-content: flex-start;
 }
 
 .results-container {
