@@ -6,6 +6,9 @@ const { Pool } = require("pg");
 
 const app = express();
 
+let given = 0;
+let shared = 0;
+
 // Render đứng sau proxy: cần để req.protocol / req.secure đúng (https)
 app.set("trust proxy", true);
 
@@ -412,6 +415,7 @@ app.post("/api/books", requireLogin, upload.single("cover"), async (req, res) =>
             file ? file.buffer : null
         ]
     );
+    shared++;
 
     res.status(201).json(publicBook(rows[0]));
 });
@@ -635,6 +639,7 @@ app.post("/api/requests/:id/accept", requireLogin, async (req, res) => {
         );
         // đã cho đi thì xoá sách
         await client.query("DELETE FROM books WHERE id = $1", [r.book_id]);
+        given++;
 
         await client.query("COMMIT");
         res.json({ ok: true });
