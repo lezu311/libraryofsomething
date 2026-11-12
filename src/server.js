@@ -711,3 +711,20 @@ initDb()
         console.error("Không kết nối được database:", err.message);
         process.exit(1);
     });
+
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+});
+
+rl.on('line', (input) => {
+  const command = input.trim();
+  if (command === 'status') {
+    console.log(`Shared : ${shared}`);
+    console.log(`Given : ${given}`);
+  } else if (command === 'stop') {
+    server.close(() => process.exit(0));
+  } else {
+    console.log(`Unknown command: ${command}`);
+  }
+});
