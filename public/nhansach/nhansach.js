@@ -602,7 +602,7 @@ function showDetail(kind, r) {
                     alert("Hãy ghi lớp nhận sách.");
                     return;
                 }
-                const where = choice.place === "lop" ? "Lớp " + choice.className : "Phòng Đội";
+                const where = choice.place === "lop" ? "Lớp " + choice.className : "Phòng Thư Viện";
                 act(
                     "/api/requests/" + r.id + "/accept",
                     accept,

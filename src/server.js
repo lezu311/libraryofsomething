@@ -595,7 +595,7 @@ app.post("/api/requests/:id/accept", requireLogin, async (req, res) => {
     const className = String(req.body.className || "").trim();
     let pickup;
     if (place === "phong-doi") {
-        pickup = "Phòng Đội";
+        pickup = "Phòng Thư Viện";
     } else if (place === "lop") {
         if (!className) {
             return res.status(400).json({ error: "Hãy ghi lớp nhận sách." });
