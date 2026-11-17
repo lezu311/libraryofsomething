@@ -13,12 +13,11 @@ const counts = {
     out: document.querySelector("#count-sent")
 };
 
-let incoming = []; // yêu cầu người khác gửi cho mình
-let outgoing = []; // yêu cầu mình đã gửi đi
+let incoming = [];
+let outgoing = [];
 let loaded = false;
-let currentKind = "in"; // hộp thư đang xem
+let currentKind = "in";
 
-// ---------- biểu tượng (SVG nét mảnh) ----------
 const ICON_PATHS = {
     inbox: '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
     send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
@@ -44,17 +43,15 @@ function svg(name) {
 function iconEl(name) {
     const span = document.createElement("span");
     span.className = "ico-wrap";
-    span.innerHTML = svg(name); // chỉ chứa icon cố định ở trên, không có chữ của người dùng
+    span.innerHTML = svg(name);
     return span;
 }
 
-// điền icon cho các chỗ có sẵn trong HTML
 document.querySelectorAll("[data-icon]").forEach(node => {
     node.className = "ico-wrap";
     node.innerHTML = svg(node.dataset.icon);
 });
 
-// ---------- tiện ích ----------
 function el(tag, className, text) {
     const node = document.createElement(tag);
     if (className) node.className = className;
@@ -72,7 +69,6 @@ function para(...parts) {
     return p;
 }
 
-// "vừa xong", "5 phút trước", "2 giờ trước", "3 ngày trước"
 function timeAgo(value) {
     const seconds = Math.floor((Date.now() - new Date(value).getTime()) / 1000);
     if (seconds < 60) return "vừa xong";
@@ -84,8 +80,6 @@ function timeAgo(value) {
     if (days < 30) return days + " ngày trước";
     return new Date(value).toLocaleDateString("vi-VN");
 }
-
-// giờ trong danh sách: hôm nay -> "16:22", năm nay -> "26 thg 10", cũ hơn -> ngày đầy đủ
 function listTime(value) {
     const d = new Date(value);
     const now = new Date();
@@ -106,7 +100,6 @@ function fullTime(value) {
     }) + " (" + timeAgo(value) + ")";
 }
 
-// avatar tròn, màu theo tên
 const COLORS = ["#d93025", "#188038", "#1a73e8", "#e37400", "#9334e6", "#d01884", "#007b83", "#5f6368"];
 
 function colorFor(name) {
@@ -121,11 +114,6 @@ function makeAvatar(name, big) {
     a.style.backgroundColor = colorFor(name);
     return a;
 }
-
-// ---------- thư chưa đọc ----------
-// hộp thư đến: thư đang chờ mình trả lời
-// đã gửi: có kết quả mới (đồng ý / từ chối / sách không còn) mà mình chưa mở xem
-// (trạng thái "đã xem" lưu trong database nên đổi máy vẫn đúng)
 function isUnread(kind, r) {
     if (kind === "in") return r.status === "pending";
     return ["accepted", "declined", "closed"].includes(r.status) && !r.requester_seen;
@@ -137,12 +125,10 @@ function markSeen(r) {
     fetch("/api/requests/" + r.id + "/seen", { method: "POST" }).catch(() => {});
 }
 
-// thư đã xử lý thì mới được xoá
 function canDeleteMail(r) {
     return r.status !== "pending";
 }
 
-// ---------- trạng thái ----------
 const STATUS = {
     pending: { icon: "clock", cls: "pending" },
     accepted: { icon: "check", cls: "ok" },
@@ -169,7 +155,6 @@ function makeChip(kind, status, extraClass) {
     return chip;
 }
 
-// đoạn xem trước trong danh sách
 function snippetText(kind, r) {
     if (kind === "in") {
         switch (r.status) {
@@ -189,7 +174,6 @@ function snippetText(kind, r) {
     }
 }
 
-// ---------- nút trên thanh công cụ: xoá thư đã xử lý ----------
 const clearBtn = el("button", "clear-btn");
 clearBtn.type = "button";
 clearBtn.hidden = true;
@@ -199,7 +183,6 @@ const toolbarActions = el("div", "toolbar-actions");
 refreshBtn.replaceWith(toolbarActions);
 toolbarActions.append(clearBtn, refreshBtn);
 
-// ---------- chuyển giữa danh sách và thư ----------
 function showListFrame() {
     toolbarEl.hidden = false;
     listEl.hidden = false;
@@ -227,7 +210,6 @@ function updateCounts() {
     setCount(counts.out, outgoing.filter(r => isUnread("out", r)).length);
 }
 
-// ---------- xoá thư ----------
 function goToList(kind) {
     const hash = kind === "in" ? "inbox" : "sent";
     if (location.hash.replace("#", "") === hash) route();
@@ -291,7 +273,6 @@ async function deleteAllDone(kind) {
 
 clearBtn.addEventListener("click", () => deleteAllDone(currentKind));
 
-// ---------- danh sách thư ----------
 function makeRow(kind, r) {
     const unread = isUnread(kind, r);
     const person = kind === "in" ? r.requester_name : r.owner_name;
@@ -317,7 +298,6 @@ function makeRow(kind, r) {
         el("span", "mail-time", listTime(r.created_at))
     );
 
-    // nút xoá hiện khi rê chuột vào (chỉ thư đã xử lý)
     if (deletable) {
         const del = el("button", "row-delete");
         del.type = "button";
@@ -401,7 +381,6 @@ function showError(message) {
     listEl.appendChild(box);
 }
 
-// ---------- một thư ----------
 function bookRef(r) {
     const text = "“" + r.book_title + "”";
     if (r.status !== "pending") return strong(text);
@@ -418,7 +397,6 @@ function pickupCard(label, pickup) {
     return box;
 }
 
-// nội dung thư
 function bodyNodes(kind, r) {
     const book = bookRef(r);
     const nodes = [];
@@ -491,7 +469,6 @@ async function act(url, button, confirmText, payload) {
     loadAll(true);
 }
 
-// một lựa chọn nơi trao sách (nút tròn)
 function makeRadio(name, value, labelText, checked) {
     const label = el("label", "pickup-option");
     const input = document.createElement("input");
@@ -503,7 +480,6 @@ function makeRadio(name, value, labelText, checked) {
     return label;
 }
 
-// khung chọn nơi trao sách (người đăng chọn khi đồng ý)
 function makePickupForm(r) {
     const form = el("div", "pickup-form");
     form.appendChild(el("p", "pickup-title", "Chọn nơi trao sách"));
@@ -542,8 +518,6 @@ function showDetail(kind, r) {
     currentKind = kind;
     showDetailFrame();
     setActiveTab(kind);
-
-    // thư đã xem thì không còn in đậm
     if (kind === "out") {
         markSeen(r);
         updateCounts();
@@ -558,7 +532,6 @@ function showDetail(kind, r) {
         location.hash = kind === "in" ? "inbox" : "sent";
     });
 
-    // nút xoá thư (chỉ thư đã xử lý)
     const topBar = el("div", "detail-top");
     topBar.appendChild(back);
     if (canDeleteMail(r)) {
@@ -572,7 +545,6 @@ function showDetail(kind, r) {
     const subject = el("h2", "detail-subject");
     subject.append("Yêu cầu nhận sách “" + r.book_title + "”", makeChip(kind, r.status));
 
-    // người gửi + giờ
     const person = kind === "in" ? r.requester_name : r.owner_name;
     const meta = el("div", "detail-meta");
     meta.append(
@@ -583,7 +555,6 @@ function showDetail(kind, r) {
     const head = el("div", "detail-head");
     head.append(makeAvatar(person, true), meta, el("div", "detail-time", fullTime(r.created_at)));
 
-    // nội dung + nút
     const body = el("div", "detail-body");
     body.append(...bodyNodes(kind, r));
 
@@ -635,7 +606,6 @@ function showDetail(kind, r) {
     detailEl.append(topBar, subject, head, body);
 }
 
-// ---------- chọn màn hình theo địa chỉ (#inbox, #sent, #in-5, #out-7) ----------
 function route() {
     if (!loaded) return;
 
@@ -665,7 +635,6 @@ refreshBtn.addEventListener("click", async () => {
     refreshBtn.classList.remove("spinning");
 });
 
-// ---------- tải dữ liệu ----------
 async function loadAll(silent) {
     try {
         const [inRes, outRes] = await Promise.all([
@@ -673,7 +642,6 @@ async function loadAll(silent) {
             fetch("/api/requests/outgoing")
         ]);
 
-        // chưa đăng nhập thì đưa về trang đăng nhập
         if (inRes.status === 401 || outRes.status === 401) {
             window.location.href = "/dangnhap_dangki/dangnhap.html";
             return;
@@ -691,13 +659,11 @@ async function loadAll(silent) {
         route();
     } catch (err) {
         console.error(err);
-        // tải ngầm bị lỗi thì giữ nguyên màn hình hiện tại
         if (silent && loaded) return;
         showError("Hãy thử tải lại sau ít phút (" + err.message + ").");
     }
 }
 
-// thư mới tự hiện, chỉ khi đang xem danh sách (không làm mất chữ đang chọn trong thư)
 setInterval(() => {
     const inDetail = /^(in|out)-\d+$/.test(location.hash.replace("#", ""));
     if (!document.hidden && !inDetail) loadAll(true);
