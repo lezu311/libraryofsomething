@@ -231,3 +231,15 @@ body {
     opacity: 0.6;
     cursor: wait;
 }
+
+.back-index {
+    display: inline-block;
+    margin-top: 20px;
+    font-size: 0.9rem;
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.back-index:hover {
+    text-decoration: underline;
+}
