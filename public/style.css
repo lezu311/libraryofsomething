@@ -64,7 +64,26 @@ body {
     background-color: var(--text-header);
     color: var(--accent);
 }
+.mod5 {
+    padding: 8px 16px;
+    border: 2px solid var(--text-header);
+    border-radius: 20px;
+    color: var(--text-header);
+    font-weight: bold;
+    font-size: 0.95rem;
+    text-decoration: none;
+    white-space: nowrap;
+    line-height: 1.2;
+    transition: background-color 0.15s, color 0.15s;
+}
+.mod5[hidden] {
+    display: none;
+}
 
+.mod5:hover {
+    background-color: var(--text-header);
+    color: var(--accent);
+}
 .upload-link {
     background-color: var(--text-header);
     color: var(--accent);
