@@ -5,6 +5,12 @@ const crypto = require("crypto");
 const compression = require('compression');
 const zlib = require('zlib');
 const { Pool } = require("pg");
+const { trace } = require("console");
+
+let tracked = {
+    shared : 0,
+    given : 0
+}
 
 const app = express();
 
@@ -74,19 +80,6 @@ async function initDb() {
             created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
         )
     `);
-    await pool.query(`
-        CREATE TABLE IF NOT EXISTS book_stats (
-            id INTEGER PRIMARY KEY,
-            shared INTEGER NOT NULL DEFAULT 0,
-            given INTEGER NOT NULL DEFAULT 0
-        )
-    `);
-
-    await pool.query(`
-        INSERT INTO book_stats (id, shared, given)
-        VALUES (1, 0, 0)
-        ON CONFLICT (id) DO NOTHING
-    `);
     // nơi lấy sách do người đăng chọn khi đồng ý (Phòng Đội / Lớp ...)
     await pool.query("ALTER TABLE requests ADD COLUMN IF NOT EXISTS pickup TEXT");
     // xoá thư: mỗi bên xoá phần của mình, cả hai xoá hết thì mới xoá hẳn
@@ -99,6 +92,12 @@ async function initDb() {
         CREATE UNIQUE INDEX IF NOT EXISTS one_pending_request
         ON requests (book_id, requester) WHERE status = 'pending'
     `);
+    await pool.query(`
+        CREATE TABLE daily_values (
+            day DATE PRIMARY KEY,
+            value NUMERIC NOT NULL
+        )
+    `)
 }
 
 // quản trị viên: xoá được mọi sách. Ví dụ ADMIN_USERS=tin,admin
@@ -439,9 +438,7 @@ app.post("/api/books", requireLogin, upload.single("cover"), async (req, res) =>
         ]
     );
 
-    await client.query(
-        "UPDATE book_stats SET shared = shared + 1 WHERE id = 1"
-    );
+    tracked.shared += 1;
 
     res.status(201).json(publicBook(rows[0]));
 });
@@ -668,16 +665,14 @@ app.post("/api/requests/:id/accept", requireLogin, async (req, res) => {
 
         await client.query("COMMIT");
         res.json({ ok: true });
+
+        tracked.given += 1;
     } catch (err) {
         await client.query("ROLLBACK");
         throw err;
     } finally {
         client.release();
     }
-    
-    await client.query(
-        "UPDATE book_stats SET given = given + 1 WHERE id = 1"
-    );
 });
 
 // người đăng TỪ CHỐI
@@ -741,10 +736,55 @@ initDb()
         process.exit(1);
     });
 
+async function save() {
+  const { shared, given } = tracked;
+
+  await pool.query(
+    `INSERT INTO daily_values (day, shared, given)
+     VALUES ((NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date, $1, $2)
+     ON CONFLICT (day)
+     DO UPDATE SET
+       shared = daily_values.shared + EXCLUDED.shared,
+       given = daily_values.given + EXCLUDED.given`,
+    [shared, given]
+  );
+
+  // duh we gotta reset the trackeds
+  tracked.shared = 0;
+  tracked.given = 0;
+}
+
 app.get("/api/stats", async (req, res) => {
-    const { rows } = await pool.query(
-        "SELECT shared, given FROM book_stats WHERE id = 1"
+    const result = await pool.query(
+      `SELECT day, shared, given
+       FROM statistics
+       WHERE day >= CURRENT_DATE - INTERVAL '29 days'
+         AND day <= CURRENT_DATE
+       ORDER BY day ASC`
     );
 
-    res.json(rows[0]);
+    res.json(result.rows);
+});
+
+app.post("/api/stats", async (req, res) => {
+    const { day, shared, given } = req.body;
+
+    if (!day || shared == null || given == null || !Number.isFinite(Number(shared)) || !Number.isFinite(Number(given))) {
+      return res.status(400).json({
+        error: "invalid values!"
+      });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO statistics (day, shared, given)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (day)
+       DO UPDATE SET 
+            shared = EXCLUDED.shared,
+            given = EXCLUDED.given
+       RETURNING *`,
+      [day, shared, given]
+    );
+
+    res.json(result.rows[0]);
 });
