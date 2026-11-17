@@ -62,3 +62,15 @@
 #form-message.error {
     color: #d64545;
 }
+
+.back-index {
+    display: inline-block;
+    margin-top: 20px;
+    font-size: 0.9rem;
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.back-index:hover {
+    text-decoration: underline;
+}

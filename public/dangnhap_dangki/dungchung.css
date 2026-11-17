@@ -27,7 +27,6 @@ body {
     color: var(--text);
 }
 
-/* ===== THANH TRÊN ===== */
 .site-header {
     display: flex;
     justify-content: space-between;
@@ -80,7 +79,6 @@ body {
     align-items: center;
 }
 
-/* ===== KHUNG ĐĂNG NHẬP / ĐĂNG KÝ ===== */
 .login-page {
     flex: 1;
     display: flex;
