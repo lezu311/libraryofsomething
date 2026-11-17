@@ -2,12 +2,22 @@ const express = require("express");
 const path = require("path");
 const multer = require("multer");
 const crypto = require("crypto");
+const compression = require('compression');
+const zlib = require('zlib');
 const { Pool } = require("pg");
 
 const app = express();
 
-let given = 0;
-let shared = 0;
+app.use(compression({
+  // Only compress responses larger than 1KB (default)
+  threshold: 1024,
+  // Optimize Brotli for dynamic API/web responses (default is 11, which can be slow on the fly)
+  brotli: {
+    params: {
+      [zlib.constants.BROTLI_PARAM_QUALITY]: 4,
+    }
+  }
+}));
 
 // Render đứng sau proxy: cần để req.protocol / req.secure đúng (https)
 app.set("trust proxy", true);
@@ -63,6 +73,19 @@ async function initDb() {
             status         TEXT NOT NULL DEFAULT 'pending',
             created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
         )
+    `);
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS book_stats (
+            id INTEGER PRIMARY KEY,
+            shared INTEGER NOT NULL DEFAULT 0,
+            given INTEGER NOT NULL DEFAULT 0
+        )
+    `);
+
+    await pool.query(`
+        INSERT INTO book_stats (id, shared, given)
+        VALUES (1, 0, 0)
+        ON CONFLICT (id) DO NOTHING
     `);
     // nơi lấy sách do người đăng chọn khi đồng ý (Phòng Đội / Lớp ...)
     await pool.query("ALTER TABLE requests ADD COLUMN IF NOT EXISTS pickup TEXT");
@@ -367,7 +390,7 @@ app.get("/api/book", async (req, res) => {
     }
 
     res.json({
-        ...publicBook(book),
+        ...publicBook(book),  
         canDelete: canDelete(req, book),
         loggedIn: Boolean(s),
         hasOwner: Boolean(book.owner),
@@ -404,7 +427,7 @@ app.post("/api/books", requireLogin, upload.single("cover"), async (req, res) =>
     const { rows } = await pool.query(
         `INSERT INTO books (title, author, category, description, owner, cover_type, cover_data)
          VALUES ($1, $2, $3, $4, $5, $6, $7)
-         RETURNING id, title, author, category, description, cover_type`,
+         RETURNING id, title, author, category, description, cover_type, created_at`,
         [
             title.trim(),
             author || null,
@@ -415,7 +438,10 @@ app.post("/api/books", requireLogin, upload.single("cover"), async (req, res) =>
             file ? file.buffer : null
         ]
     );
-    shared++;
+
+    await client.query(
+        "UPDATE book_stats SET shared = shared + 1 WHERE id = 1"
+    );
 
     res.status(201).json(publicBook(rows[0]));
 });
@@ -639,7 +665,6 @@ app.post("/api/requests/:id/accept", requireLogin, async (req, res) => {
         );
         // đã cho đi thì xoá sách
         await client.query("DELETE FROM books WHERE id = $1", [r.book_id]);
-        given++;
 
         await client.query("COMMIT");
         res.json({ ok: true });
@@ -649,6 +674,10 @@ app.post("/api/requests/:id/accept", requireLogin, async (req, res) => {
     } finally {
         client.release();
     }
+    
+    await client.query(
+        "UPDATE book_stats SET given = given + 1 WHERE id = 1"
+    );
 });
 
 // người đăng TỪ CHỐI
@@ -711,3 +740,11 @@ initDb()
         console.error("Không kết nối được database:", err.message);
         process.exit(1);
     });
+
+app.get("/api/stats", async (req, res) => {
+    const { rows } = await pool.query(
+        "SELECT shared, given FROM book_stats WHERE id = 1"
+    );
+
+    res.json(rows[0]);
+});
