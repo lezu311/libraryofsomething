@@ -93,11 +93,12 @@ async function initDb() {
         ON requests (book_id, requester) WHERE status = 'pending'
     `);
     await pool.query(`
-        CREATE TABLE daily_values (
+        CREATE TABLE IF NOT EXISTS statistics (
             day DATE PRIMARY KEY,
-            value NUMERIC NOT NULL
+            shared NUMERIC NOT NULL,
+            given NUMERIC NOT NULL
         )
-    `)
+    `);
 }
 
 // quản trị viên: xoá được mọi sách. Ví dụ ADMIN_USERS=tin,admin
