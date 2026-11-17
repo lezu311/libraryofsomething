@@ -4,6 +4,7 @@
     --bg-section: #f2f4f8;
     --bg-card: #ffffff;
     --bg-header: #2f4f7f;
+    --bg-nav: #3b5b94;
     --bg-placeholder: #cccccc;
     --text: #1a1a1a;
     --text-header: #ffffff;
@@ -32,7 +33,6 @@ body {
     color: var(--text-header);
 }
 
-/* khối bên phải, rộng bằng logo để tiêu đề nằm giữa */
 .header-actions {
     flex: 1;
     display: flex;
@@ -65,7 +65,6 @@ body {
     color: var(--accent);
 }
 
-/* nút Đăng sách: nổi bật hơn các nút còn lại */
 .upload-link {
     background-color: var(--text-header);
     color: var(--accent);
@@ -75,7 +74,6 @@ body {
     background-color: rgba(255, 255, 255, 0.85);
 }
 
-/* thẻ tên người dùng */
 .user-chip {
     display: inline-flex;
     align-items: center;
@@ -106,7 +104,6 @@ body {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-
 .logo {
     flex: 1;
     display: flex;
@@ -128,9 +125,11 @@ body {
 
 .desc .short-description {
     font-size: 1.5rem;
-    margin-bottom: 60px;
+    margin-bottom: 1px;
 }
-
+.desc .shortvoid {
+    font-size: 1.2rem;
+}
 .logo .image .logo1 {
     max-width: 100%;
     height: auto;
@@ -283,7 +282,6 @@ body {
     color: var(--text);
 }
 
-/* ===== cây danh mục ===== */
 .category-tree ul {
     list-style: none;
     margin: 0;
@@ -295,7 +293,6 @@ body {
     margin: 0;
 }
 
-/* mọi mục cách đều nhau một khoảng nhỏ */
 .category-tree details,
 .category-tree .leaf {
     margin: 3px 0;
@@ -325,6 +322,10 @@ summary::-webkit-details-marker {
 .category-button.selected {
     background-color: var(--accent);
     color: var(--accent-text);
+}
+
+summary .category-button {
+    pointer-events: none;
 }
 
 summary::before {
