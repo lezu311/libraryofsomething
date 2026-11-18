@@ -81,9 +81,9 @@ async function initDb() {
     `);
     await pool.query(`
         CREATE TABLE IF NOT EXISTS statistics (
-            day TIMESTAMPZ NOT NULL,
-            shared NUMERIC NOT NULL,
-            given NUMERIC NOT NULL
+            day TIMESTAMPTZ PRIMARY KEY,
+            shared INTEGER NOT NULL DEFAULT 0,
+            given INTEGER NOT NULL DEFAULT 0
         )
     `);
     await pool.query("DELETE FROM sessions WHERE expires <= $1", [Date.now()]);
