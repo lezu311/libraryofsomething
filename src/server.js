@@ -709,7 +709,12 @@ app.post("/api/stats", async(req, res) => {
         [day, shared, given]
     );
 
-    res.json({ ok : true })
+    res.json({ ok : true });
+})
+
+app.delete("/api/stats", async(req, res) => {
+    await pool.query("DROP TABLE IF EXISTS statistics");
+    res.json({ ok : true });
 })
 
 app.use((err, req, res, next) => {
