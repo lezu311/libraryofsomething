@@ -690,10 +690,11 @@ app.post("/api/requests/:id/cancel", requireLogin, async (req, res) => {
 app.get("/api/stats", async(req, res) => {
     const t = await pool.query(
         `
-        SELECT * FROM statistics
+        SELECT to_char(day, 'DD/MM') AS day, shared, given
+        FROM statistics
         WHERE day >= date_trunc('month', CURRENT_DATE)
-        AND day <= date_trunc('month', CURRENT_DATE) + interval '1 month'
-        ORDER BY day;
+          AND day <  date_trunc('month', CURRENT_DATE) + interval '1 month'
+        ORDER BY statistics.day;
         `
     );
     res.json(t.rows);
