@@ -39,7 +39,7 @@ new Chart(ctx, {
     }
 })
 
-async function getExpressData() {
+async function getData() {
     const response = await fetch(`api/stats`, {
         method : 'POST'
     });
@@ -52,3 +52,5 @@ async function getExpressData() {
         return data;
     }
 }
+
+getData()
