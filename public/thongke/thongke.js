@@ -41,7 +41,7 @@ new Chart(ctx, {
 
 async function getData() {
     const response = await fetch(`/api/stats`, {
-        method : 'POST'
+        method : 'GET'
     });
 
     if (response.ok)
