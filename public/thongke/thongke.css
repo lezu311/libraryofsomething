@@ -1,0 +1,15 @@
+.tieude {
+    text-align: center;
+}
+.mail-home {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  padding: 10px 16px;
+  background-color: #2563eb;
+  color: #ffffff;
+  text-decoration: none;
+  border-radius: 8px;
+  font-family: sans-serif;
+  z-index: 999;
+}
