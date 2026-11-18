@@ -170,7 +170,6 @@
     to { transform: rotate(360deg); }
 }
 
-/* nút "Xoá thư đã xử lý" */
 .clear-btn {
     display: inline-flex;
     align-items: center;
@@ -201,7 +200,6 @@
     cursor: wait;
 }
 
-/* ===== danh sách thư ===== */
 .mail-row {
     display: flex;
     align-items: center;
