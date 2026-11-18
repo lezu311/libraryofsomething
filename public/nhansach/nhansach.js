@@ -80,6 +80,7 @@ function timeAgo(value) {
     if (days < 30) return days + " ngày trước";
     return new Date(value).toLocaleDateString("vi-VN");
 }
+
 function listTime(value) {
     const d = new Date(value);
     const now = new Date();
@@ -114,6 +115,7 @@ function makeAvatar(name, big) {
     a.style.backgroundColor = colorFor(name);
     return a;
 }
+
 function isUnread(kind, r) {
     if (kind === "in") return r.status === "pending";
     return ["accepted", "declined", "closed"].includes(r.status) && !r.requester_seen;
@@ -262,7 +264,6 @@ async function deleteAllDone(kind) {
     }
     clearBtn.disabled = false;
 
-    // giữ lại các thư đang chờ
     const keep = data.filter(r => !canDeleteMail(r));
     if (kind === "in") incoming = keep;
     else outgoing = keep;
@@ -447,7 +448,6 @@ function bodyNodes(kind, r) {
     return nodes;
 }
 
-// gọi server rồi tải lại thư (thư sẽ tự đổi sang trạng thái mới)
 async function act(url, button, confirmText, payload) {
     if (confirmText && !confirm(confirmText)) return;
 
@@ -518,6 +518,7 @@ function showDetail(kind, r) {
     currentKind = kind;
     showDetailFrame();
     setActiveTab(kind);
+
     if (kind === "out") {
         markSeen(r);
         updateCounts();
@@ -573,7 +574,7 @@ function showDetail(kind, r) {
                     alert("Hãy ghi lớp nhận sách.");
                     return;
                 }
-                const where = choice.place === "lop" ? "Lớp " + choice.className : "Phòng Thư Viện";
+                const where = choice.place === "lop" ? "Lớp " + choice.className : "Phòng Thư viện";
                 act(
                     "/api/requests/" + r.id + "/accept",
                     accept,

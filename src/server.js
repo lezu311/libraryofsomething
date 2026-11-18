@@ -2,40 +2,18 @@ const express = require("express");
 const path = require("path");
 const multer = require("multer");
 const crypto = require("crypto");
-const compression = require('compression');
-const zlib = require('zlib');
 const { Pool } = require("pg");
-const { trace } = require("console");
-
-let tracked = {
-    shared : 0,
-    given : 0
-}
 
 const app = express();
 
-app.use(compression({
-  // Only compress responses larger than 1KB (default)
-  threshold: 1024,
-  // Optimize Brotli for dynamic API/web responses (default is 11, which can be slow on the fly)
-  brotli: {
-    params: {
-      [zlib.constants.BROTLI_PARAM_QUALITY]: 4,
-    }
-  }
-}));
-
-// Render đứng sau proxy: cần để req.protocol / req.secure đúng (https)
 app.set("trust proxy", true);
 
-// ---------- kết nối database ----------
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
     console.error("Thiếu biến môi trường DATABASE_URL (xem hướng dẫn nối database).");
     process.exit(1);
 }
 
-// Internal URL của Render không cần SSL, External URL (có render.com) thì cần
 const useSsl = DATABASE_URL.includes("render.com") || process.env.PGSSL === "true";
 const pool = new Pool({
     connectionString: DATABASE_URL,
@@ -65,7 +43,6 @@ async function initDb() {
             created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
         )
     `);
-    // yêu cầu nhận sách. status: pending | accepted | declined | cancelled | closed
     await pool.query(`
         CREATE TABLE IF NOT EXISTS requests (
             id             SERIAL PRIMARY KEY,
@@ -80,34 +57,38 @@ async function initDb() {
             created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
         )
     `);
-    // nơi lấy sách do người đăng chọn khi đồng ý (Phòng Đội / Lớp ...)
     await pool.query("ALTER TABLE requests ADD COLUMN IF NOT EXISTS pickup TEXT");
-    // xoá thư: mỗi bên xoá phần của mình, cả hai xoá hết thì mới xoá hẳn
     await pool.query("ALTER TABLE requests ADD COLUMN IF NOT EXISTS owner_deleted BOOLEAN NOT NULL DEFAULT false");
     await pool.query("ALTER TABLE requests ADD COLUMN IF NOT EXISTS requester_deleted BOOLEAN NOT NULL DEFAULT false");
-    // người xin đã mở xem kết quả chưa (để in đậm thư mới)
     await pool.query("ALTER TABLE requests ADD COLUMN IF NOT EXISTS requester_seen BOOLEAN NOT NULL DEFAULT false");
-    // mỗi người chỉ có 1 yêu cầu đang chờ cho mỗi cuốn sách
     await pool.query(`
         CREATE UNIQUE INDEX IF NOT EXISTS one_pending_request
         ON requests (book_id, requester) WHERE status = 'pending'
     `);
     await pool.query(`
-        CREATE TABLE IF NOT EXISTS statistics (
-            day DATE PRIMARY KEY,
-            shared NUMERIC NOT NULL,
-            given NUMERIC NOT NULL
+        CREATE TABLE IF NOT EXISTS sessions (
+            token_hash TEXT PRIMARY KEY,
+            username   TEXT NOT NULL,
+            fullname   TEXT NOT NULL,
+            expires    BIGINT NOT NULL
         )
     `);
+    await pool.query("DELETE FROM sessions WHERE expires <= $1", [Date.now()]);
+    const saved = await pool.query("SELECT token_hash, username, fullname, expires FROM sessions");
+    for (const row of saved.rows) {
+        sessions.set(row.token_hash, {
+            username: row.username,
+            fullname: row.fullname,
+            expires: Number(row.expires)
+        });
+    }
 }
 
-// quản trị viên: xoá được mọi sách. Ví dụ ADMIN_USERS=tin,admin
 const ADMIN_USERS = (process.env.ADMIN_USERS || "")
     .split(",")
     .map(s => s.trim().toLowerCase())
     .filter(Boolean);
 
-// ---------- mật khẩu ----------
 function hashPassword(password, salt) {
     return crypto.scryptSync(password, salt, 64).toString("hex");
 }
@@ -118,9 +99,12 @@ function checkPassword(password, user) {
     return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
-// ---------- sessions (lưu trong bộ nhớ: deploy lại thì phải đăng nhập lại) ----------
-const SESSION_MS = 7 * 24 * 60 * 60 * 1000; // 7 ngày
-const sessions = new Map(); // token -> { username, fullname, expires }
+const SESSION_MS = 7 * 24 * 60 * 60 * 1000;
+const sessions = new Map();
+
+function hashToken(token) {
+    return crypto.createHash("sha256").update(token).digest("hex");
+}
 
 function parseCookies(req) {
     const out = {};
@@ -133,10 +117,13 @@ function parseCookies(req) {
 
 function getSession(req) {
     const token = parseCookies(req).sid;
-    const s = token && sessions.get(token);
+    if (!token) return null;
+    const key = hashToken(token);
+    const s = sessions.get(key);
     if (!s) return null;
     if (s.expires < Date.now()) {
-        sessions.delete(token);
+        sessions.delete(key);
+        pool.query("DELETE FROM sessions WHERE token_hash = $1", [key]).catch(console.error);
         return null;
     }
     return s;
@@ -144,11 +131,17 @@ function getSession(req) {
 
 function startSession(req, res, user) {
     const token = crypto.randomBytes(32).toString("hex");
-    sessions.set(token, {
+    const key = hashToken(token);
+    const expires = Date.now() + SESSION_MS;
+    sessions.set(key, {
         username: user.username,
         fullname: user.fullname,
-        expires: Date.now() + SESSION_MS
+        expires
     });
+    pool.query(
+        "INSERT INTO sessions (token_hash, username, fullname, expires) VALUES ($1, $2, $3, $4)",
+        [key, user.username, user.fullname, expires]
+    ).catch(console.error);
     const secure = req.secure ? "; Secure" : "";
     res.setHeader(
         "Set-Cookie",
@@ -156,7 +149,6 @@ function startSession(req, res, user) {
     );
 }
 
-// chặn người chưa đăng nhập
 function requireLogin(req, res, next) {
     if (!getSession(req)) {
         return res.status(401).json({ error: "Bạn cần đăng nhập" });
@@ -164,8 +156,6 @@ function requireLogin(req, res, next) {
     next();
 }
 
-// ---------- sách ----------
-// được xoá: quản trị viên, hoặc chính người đã đăng cuốn đó
 function canDelete(req, book) {
     const s = getSession(req);
     if (!s) return false;
@@ -173,13 +163,11 @@ function canDelete(req, book) {
     return Boolean(book.owner) && book.owner === s.username;
 }
 
-// tên file ảnh bìa gửi cho trình duyệt (vd "5.png"); ảnh thật nằm trong database
 function coverName(row) {
     if (!row.cover_type) return null;
     return row.id + (row.cover_type === "image/png" ? ".png" : ".jpg");
 }
 
-// dữ liệu gửi ra ngoài (không lộ owner)
 function publicBook(row) {
     return {
         id: row.id,
@@ -191,25 +179,21 @@ function publicBook(row) {
     };
 }
 
-// ---------- upload (giữ ảnh trong bộ nhớ rồi ghi vào database) ----------
 const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 1024 * 1024 }, // 1 MB
+    limits: { fileSize: 5 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         const ok = ["image/png", "image/jpeg"].includes(file.mimetype);
         cb(null, ok);
     }
 });
 
-// ---------- middleware ----------
 app.use(express.json());
 
-// file cũ, không còn dùng nhưng vẫn chặn cho chắc
 app.use("/dangnhap_dangki/users.json", (req, res) => {
     res.status(404).end();
 });
 
-// ảnh bìa lấy từ database
 app.get("/covers/:file", async (req, res) => {
     const id = parseInt(req.params.file, 10);
     if (!Number.isInteger(id)) return res.status(404).end();
@@ -224,13 +208,13 @@ app.get("/covers/:file", async (req, res) => {
     res.type(rows[0].cover_type).send(rows[0].cover_data);
 });
 
+app.get("/index.html", (req, res) => res.redirect(301, "/"));
+
 app.use(express.static(path.join(__dirname, "..", "public")));
 
-// ---------- đường dẫn ngắn ----------
 app.get("/dangki", (req, res) => res.redirect("/dangnhap_dangki/dangki.html"));
 app.get("/dangnhap", (req, res) => res.redirect("/dangnhap_dangki/dangnhap.html"));
 
-// ---------- sitemap cho Google ----------
 app.get("/sitemap.xml", async (req, res) => {
     const { rows } = await pool.query("SELECT id FROM books ORDER BY id");
     const base = req.protocol + "://" + req.get("host");
@@ -244,7 +228,6 @@ app.get("/sitemap.xml", async (req, res) => {
     res.type("application/xml").send(xml);
 });
 
-// ---------- auth routes ----------
 app.post("/api/register", async (req, res) => {
     const fullname = String(req.body.fullname || "").trim();
     const username = String(req.body.username || "").trim().toLowerCase();
@@ -270,7 +253,7 @@ app.post("/api/register", async (req, res) => {
             [username, fullname, salt, hashPassword(password, salt)]
         );
     } catch (err) {
-        if (err.code === "23505") { // trùng khoá chính
+        if (err.code === "23505") {
             return res.status(409).json({ message: "Tên đăng nhập đã tồn tại." });
         }
         throw err;
@@ -296,7 +279,11 @@ app.post("/api/login", async (req, res) => {
 
 app.post("/api/logout", (req, res) => {
     const token = parseCookies(req).sid;
-    if (token) sessions.delete(token);
+    if (token) {
+        const key = hashToken(token);
+        sessions.delete(key);
+        pool.query("DELETE FROM sessions WHERE token_hash = $1", [key]).catch(console.error);
+    }
     res.setHeader("Set-Cookie", "sid=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0");
     res.json({ ok: true });
 });
@@ -305,7 +292,6 @@ app.get("/api/me", async (req, res) => {
     const s = getSession(req);
     if (!s) return res.status(401).json({ error: "Chưa đăng nhập" });
 
-    // số yêu cầu nhận sách đang chờ mình xử lý (hiện trên nút "Thông báo")
     const { rows } = await pool.query(
         "SELECT count(*)::int AS n FROM requests WHERE owner = $1 AND status = 'pending'",
         [s.username]
@@ -314,7 +300,6 @@ app.get("/api/me", async (req, res) => {
     res.json({ username: s.username, fullname: s.fullname, pendingRequests: rows[0].n });
 });
 
-// xoá tài khoản (phải nhập lại mật khẩu)
 app.delete("/api/account", requireLogin, async (req, res) => {
     const s = getSession(req);
     const password = String(req.body.password || "");
@@ -329,18 +314,15 @@ app.delete("/api/account", requireLogin, async (req, res) => {
     try {
         await client.query("BEGIN");
 
-        // yêu cầu đang chờ gửi tới mình thì đóng lại (mình không còn để trả lời)
         await client.query(
             "UPDATE requests SET status = 'closed' WHERE owner = $1 AND status = 'pending'",
             [s.username]
         );
-        // yêu cầu mình đã gửi thì xoá luôn
         await client.query("DELETE FROM requests WHERE requester = $1", [s.username]);
 
         if (deleteBooks) {
             await client.query("DELETE FROM books WHERE owner = $1", [s.username]);
         } else {
-            // giữ sách nhưng bỏ chủ, để người đăng ký trùng tên sau này không nhận nhầm
             await client.query("UPDATE books SET owner = NULL WHERE owner = $1", [s.username]);
         }
         await client.query("DELETE FROM users WHERE username = $1", [s.username]);
@@ -352,16 +334,15 @@ app.delete("/api/account", requireLogin, async (req, res) => {
         client.release();
     }
 
-    // đăng xuất mọi phiên của tài khoản này
-    for (const [token, sess] of sessions) {
-        if (sess.username === s.username) sessions.delete(token);
+    for (const [key, sess] of sessions) {
+        if (sess.username === s.username) sessions.delete(key);
     }
+    await pool.query("DELETE FROM sessions WHERE username = $1", [s.username]);
 
     res.setHeader("Set-Cookie", "sid=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0");
     res.json({ ok: true });
 });
 
-// ---------- book routes ----------
 app.get("/api/book", async (req, res) => {
     const id = Number(req.query.id);
     if (!Number.isInteger(id)) {
@@ -379,7 +360,6 @@ app.get("/api/book", async (req, res) => {
     const book = rows[0];
     const s = getSession(req);
 
-    // mình đã gửi yêu cầu nhận cuốn này và đang chờ chưa?
     let myRequest = null;
     if (s) {
         const r = await pool.query(
@@ -390,7 +370,7 @@ app.get("/api/book", async (req, res) => {
     }
 
     res.json({
-        ...publicBook(book),  
+        ...publicBook(book),
         canDelete: canDelete(req, book),
         loggedIn: Boolean(s),
         hasOwner: Boolean(book.owner),
@@ -415,7 +395,6 @@ app.get("/api/books", async (req, res) => {
     res.json(rows.map(publicBook));
 });
 
-// add a book (chỉ người đã đăng nhập)
 app.post("/api/books", requireLogin, upload.single("cover"), async (req, res) => {
     const { title, author, category, description } = req.body;
 
@@ -427,7 +406,7 @@ app.post("/api/books", requireLogin, upload.single("cover"), async (req, res) =>
     const { rows } = await pool.query(
         `INSERT INTO books (title, author, category, description, owner, cover_type, cover_data)
          VALUES ($1, $2, $3, $4, $5, $6, $7)
-         RETURNING id, title, author, category, description, cover_type, created_at`,
+         RETURNING id, title, author, category, description, cover_type`,
         [
             title.trim(),
             author || null,
@@ -439,12 +418,9 @@ app.post("/api/books", requireLogin, upload.single("cover"), async (req, res) =>
         ]
     );
 
-    tracked.shared += 1;
-
     res.status(201).json(publicBook(rows[0]));
 });
 
-// xoá sách (chủ sách hoặc quản trị viên)
 app.delete("/api/books/:id", requireLogin, async (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) {
@@ -460,7 +436,6 @@ app.delete("/api/books/:id", requireLogin, async (req, res) => {
         return res.status(403).json({ error: "Bạn không có quyền xoá sách này" });
     }
 
-    // các yêu cầu đang chờ cho cuốn này không còn ý nghĩa nữa
     await pool.query(
         "UPDATE requests SET status = 'closed' WHERE book_id = $1 AND status = 'pending'",
         [id]
@@ -469,9 +444,6 @@ app.delete("/api/books/:id", requireLogin, async (req, res) => {
     res.json({ ok: true });
 });
 
-// ---------- yêu cầu nhận sách / thông báo ----------
-
-// gửi yêu cầu nhận một cuốn sách (không cần ghi gì thêm)
 app.post("/api/books/:id/request", requireLogin, async (req, res) => {
     const s = getSession(req);
     const id = Number(req.params.id);
@@ -514,7 +486,6 @@ app.post("/api/books/:id/request", requireLogin, async (req, res) => {
     res.status(201).json({ ok: true });
 });
 
-// hộp thư đến: yêu cầu người khác gửi tới mình (trừ thư mình đã xoá)
 app.get("/api/requests/incoming", requireLogin, async (req, res) => {
     const s = getSession(req);
     const { rows } = await pool.query(
@@ -528,7 +499,6 @@ app.get("/api/requests/incoming", requireLogin, async (req, res) => {
     res.json(rows);
 });
 
-// đã gửi: yêu cầu mình đã gửi đi (trừ thư mình đã xoá)
 app.get("/api/requests/outgoing", requireLogin, async (req, res) => {
     const s = getSession(req);
     const { rows } = await pool.query(
@@ -542,7 +512,6 @@ app.get("/api/requests/outgoing", requireLogin, async (req, res) => {
     res.json(rows);
 });
 
-// người xin đã mở xem thư (để không còn in đậm)
 app.post("/api/requests/:id/seen", requireLogin, async (req, res) => {
     const s = getSession(req);
     const id = Number(req.params.id);
@@ -557,7 +526,6 @@ app.post("/api/requests/:id/seen", requireLogin, async (req, res) => {
     res.json({ ok: true });
 });
 
-// xoá một thư (chỉ phía mình; thư đang chờ thì chưa xoá được)
 app.delete("/api/requests/:id", requireLogin, async (req, res) => {
     const s = getSession(req);
     const id = Number(req.params.id);
@@ -579,7 +547,6 @@ app.delete("/api/requests/:id", requireLogin, async (req, res) => {
 
     const column = r.owner === s.username ? "owner_deleted" : "requester_deleted";
     await pool.query("UPDATE requests SET " + column + " = true WHERE id = $1", [id]);
-    // cả hai bên đã xoá thì xoá hẳn khỏi database
     await pool.query(
         "DELETE FROM requests WHERE id = $1 AND owner_deleted AND requester_deleted",
         [id]
@@ -587,7 +554,6 @@ app.delete("/api/requests/:id", requireLogin, async (req, res) => {
     res.json({ ok: true });
 });
 
-// xoá tất cả thư đã xử lý trong một hộp (?box=in hoặc ?box=out)
 app.delete("/api/requests", requireLogin, async (req, res) => {
     const s = getSession(req);
     const box = String(req.query.box || "");
@@ -610,7 +576,6 @@ app.delete("/api/requests", requireLogin, async (req, res) => {
     res.json({ ok: true });
 });
 
-// người đăng ĐỒNG Ý và chọn nơi lấy sách: sách bị xoá khỏi web
 app.post("/api/requests/:id/accept", requireLogin, async (req, res) => {
     const s = getSession(req);
     const id = Number(req.params.id);
@@ -618,12 +583,11 @@ app.post("/api/requests/:id/accept", requireLogin, async (req, res) => {
         return res.status(404).json({ error: "Không tìm thấy yêu cầu" });
     }
 
-    // nơi lấy sách: Phòng Đội hoặc ở lớp
     const place = String(req.body.place || "");
     const className = String(req.body.className || "").trim();
     let pickup;
     if (place === "phong-doi") {
-        pickup = "Phòng Thư Viện";
+        pickup = "Phòng Thư viện";
     } else if (place === "lop") {
         if (!className) {
             return res.status(400).json({ error: "Hãy ghi lớp nhận sách." });
@@ -656,18 +620,14 @@ app.post("/api/requests/:id/accept", requireLogin, async (req, res) => {
             "UPDATE requests SET status = 'accepted', pickup = $2 WHERE id = $1",
             [id, pickup]
         );
-        // những người khác xin cùng cuốn này: đóng lại
         await client.query(
             "UPDATE requests SET status = 'closed' WHERE book_id = $1 AND status = 'pending' AND id <> $2",
             [r.book_id, id]
         );
-        // đã cho đi thì xoá sách
         await client.query("DELETE FROM books WHERE id = $1", [r.book_id]);
 
         await client.query("COMMIT");
         res.json({ ok: true });
-
-        tracked.given += 1;
     } catch (err) {
         await client.query("ROLLBACK");
         throw err;
@@ -676,7 +636,6 @@ app.post("/api/requests/:id/accept", requireLogin, async (req, res) => {
     }
 });
 
-// người đăng TỪ CHỐI
 app.post("/api/requests/:id/decline", requireLogin, async (req, res) => {
     const s = getSession(req);
     const id = Number(req.params.id);
@@ -694,7 +653,6 @@ app.post("/api/requests/:id/decline", requireLogin, async (req, res) => {
     res.json({ ok: true });
 });
 
-// người xin tự HUỶ yêu cầu của mình
 app.post("/api/requests/:id/cancel", requireLogin, async (req, res) => {
     const s = getSession(req);
     const id = Number(req.params.id);
@@ -715,7 +673,7 @@ app.post("/api/requests/:id/cancel", requireLogin, async (req, res) => {
 app.use((err, req, res, next) => {
     if (err instanceof multer.MulterError) {
         const message = err.code === "LIMIT_FILE_SIZE"
-            ? "Cover is too big (max 1 MB)"
+            ? "Cover is too big (max 5 MB)"
             : err.message;
         return res.status(400).json({ error: message });
     }
@@ -723,7 +681,6 @@ app.use((err, req, res, next) => {
     res.status(500).json({ error: "Server error", message: "Lỗi máy chủ, hãy thử lại sau." });
 });
 
-// ---------- start ----------
 const PORT = process.env.PORT || 3000;
 
 initDb()
@@ -736,56 +693,3 @@ initDb()
         console.error("Không kết nối được database:", err.message);
         process.exit(1);
     });
-
-async function save() {
-  const { shared, given } = tracked;
-
-  await pool.query(
-    `INSERT INTO daily_values (day, shared, given)
-     VALUES ((NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date, $1, $2)
-     ON CONFLICT (day)
-     DO UPDATE SET
-       shared = daily_values.shared + EXCLUDED.shared,
-       given = daily_values.given + EXCLUDED.given`,
-    [shared, given]
-  );
-
-  // duh we gotta reset the trackeds
-  tracked.shared = 0;
-  tracked.given = 0;
-}
-
-app.get("/api/stats", async (req, res) => {
-    const result = await pool.query(
-      `SELECT day, shared, given
-       FROM statistics
-       WHERE day >= CURRENT_DATE - INTERVAL '29 days'
-         AND day <= CURRENT_DATE
-       ORDER BY day ASC`
-    );
-
-    res.json(result.rows);
-});
-
-app.post("/api/stats", async (req, res) => {
-    const { day, shared, given } = req.body;
-
-    if (!day || shared == null || given == null || !Number.isFinite(Number(shared)) || !Number.isFinite(Number(given))) {
-      return res.status(400).json({
-        error: "invalid values!"
-      });
-    }
-
-    const result = await pool.query(
-      `INSERT INTO statistics (day, shared, given)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (day)
-       DO UPDATE SET 
-            shared = EXCLUDED.shared,
-            given = EXCLUDED.given
-       RETURNING *`,
-      [day, shared, given]
-    );
-
-    res.json(result.rows[0]);
-});

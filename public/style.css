@@ -27,7 +27,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 30px 30px;
+    padding: 15px 30px;
     padding-bottom: 0;
     background-color: var(--bg-header);
     color: var(--text-header);
@@ -64,7 +64,7 @@ body {
     background-color: var(--text-header);
     color: var(--accent);
 }
-.mod5 {
+.login-link {
     padding: 8px 16px;
     border: 2px solid var(--text-header);
     border-radius: 20px;
@@ -76,6 +76,7 @@ body {
     line-height: 1.2;
     transition: background-color 0.15s, color 0.15s;
 }
+
 .mod5[hidden] {
     display: none;
 }
@@ -83,6 +84,18 @@ body {
 .mod5:hover {
     background-color: var(--text-header);
     color: var(--accent);
+}
+.mod5 {
+    padding: 8px 16px;
+    border: 2px solid var(--text-header);
+    border-radius: 20px;
+    color: var(--text-header);
+    font-weight: bold;
+    font-size: 0.95rem;
+    text-decoration: none;
+    white-space: nowrap;
+    line-height: 1.2;
+    transition: background-color 0.15s, color 0.15s;
 }
 .upload-link {
     background-color: var(--text-header);
@@ -123,6 +136,43 @@ body {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+.top-nav {
+    flex: 0 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0 24px;
+    background-color: var(--bg-nav);
+}
+
+.nav-item {
+    padding: 16px 14px 13px;
+    border: none;
+    border-bottom: 3px solid transparent;
+    background: none;
+    color: var(--text-header);
+    font: inherit;
+    font-size: 1.05rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.nav-item:hover {
+    background-color: rgba(255, 255, 255, 0.12);
+}
+
+.nav-item.selected {
+    border-bottom-color: var(--text-header);
+    background-color: rgba(255, 255, 255, 0.18);
+}
+
+.nav-item:focus-visible {
+    outline: 2px solid var(--text-header);
+    outline-offset: -4px;
+}
+
 .logo {
     flex: 1;
     display: flex;
@@ -138,21 +188,24 @@ body {
 }
 
 .desc .name {
-    font-size: 3rem;
-    margin-bottom: 0;
+    font-size: 2rem;
+    margin: 0;
 }
 
 .desc .short-description {
-    font-size: 1.5rem;
-    margin-bottom: 1px;
+    font-size: 1.1rem;
+    margin: 6px 0 0 0;
 }
-.desc .shortvoid {
-    font-size: 1.2rem;
+
+.desc .short-description2 {
+    font-size: 1.1rem;
+    margin: 6px 0 15px 0;
 }
+
 .logo .image .logo1 {
     max-width: 100%;
     height: auto;
-    width: 90px;
+    width: 60px;
 }
 
 .logo .image {
@@ -224,7 +277,6 @@ body {
     word-break: break-word;
 }
 
-/* ảnh bìa trong thẻ sách */
 .search-result img,
 .featured-card img {
     display: block;
@@ -235,7 +287,6 @@ body {
     margin-bottom: 8px;
 }
 
-/* nút "Xem sách" */
 .view-button {
     display: inline-block;
     margin-top: 5px;
