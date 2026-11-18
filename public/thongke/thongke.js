@@ -38,3 +38,17 @@ new Chart(ctx, {
         }
     }
 })
+
+async function getExpressData() {
+    const response = await fetch(`api/stats`, {
+        method : 'POST'
+    });
+
+    if (response.ok)
+    {
+        const data = await response.json();
+
+        console.log('Data received:', data);
+        return data;
+    }
+}
