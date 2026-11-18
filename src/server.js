@@ -3,6 +3,7 @@ const path = require("path");
 const multer = require("multer");
 const crypto = require("crypto");
 const { Pool } = require("pg");
+const { trace } = require("console");
 
 const app = express();
 
@@ -19,6 +20,11 @@ const pool = new Pool({
     connectionString: DATABASE_URL,
     ssl: useSsl ? { rejectUnauthorized: false } : false
 });
+
+let tracked = {
+    shared : 0,
+    given : 0
+}
 
 async function initDb() {
     await pool.query(`
@@ -71,6 +77,13 @@ async function initDb() {
             username   TEXT NOT NULL,
             fullname   TEXT NOT NULL,
             expires    BIGINT NOT NULL
+        )
+    `);
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS statistics (
+            day TIMESTAMPZ NOT NULL,
+            shared NUMERIC NOT NULL,
+            given NUMERIC NOT NULL
         )
     `);
     await pool.query("DELETE FROM sessions WHERE expires <= $1", [Date.now()]);
@@ -418,6 +431,7 @@ app.post("/api/books", requireLogin, upload.single("cover"), async (req, res) =>
         ]
     );
 
+    tracked.shared = tracked.shared + 1;
     res.status(201).json(publicBook(rows[0]));
 });
 
@@ -441,6 +455,8 @@ app.delete("/api/books/:id", requireLogin, async (req, res) => {
         [id]
     );
     await pool.query("DELETE FROM books WHERE id = $1", [id]);
+
+    tracked.shared = tracked.shared - 1;
     res.json({ ok: true });
 });
 
@@ -627,6 +643,7 @@ app.post("/api/requests/:id/accept", requireLogin, async (req, res) => {
         await client.query("DELETE FROM books WHERE id = $1", [r.book_id]);
 
         await client.query("COMMIT");
+        tracked.given = tracked.given + 1;
         res.json({ ok: true });
     } catch (err) {
         await client.query("ROLLBACK");
@@ -670,6 +687,30 @@ app.post("/api/requests/:id/cancel", requireLogin, async (req, res) => {
     res.json({ ok: true });
 });
 
+app.get("/api/stats", async(req, res) => {
+    const t = await pool.query(
+        `
+        SELECT * FROM statistics
+        WHERE day >= date_trunc('month', CURRENT_DATE)
+        AND day <= date_trunc('month', CURRENT_DATE) + interval '1 month'
+        ORDER BY day;
+        `
+    );
+    res.json(t.rows);
+})
+
+app.post("/api/stats", async(req, res) => {
+    const { day, shared, given } = req.body
+    await pool.query(
+        `
+        INSERT INTO statistics (day, shared, given) VALUES ($1, $2, $3);
+        `,
+        [day, shared, given]
+    );
+
+    res.json({ ok : true })
+})
+
 app.use((err, req, res, next) => {
     if (err instanceof multer.MulterError) {
         const message = err.code === "LIMIT_FILE_SIZE"
@@ -693,3 +734,22 @@ initDb()
         console.error("Không kết nối được database:", err.message);
         process.exit(1);
     });
+
+setInterval(() => {
+    const { shared, given } = tracked
+
+    if (shared === 0 && given === 0) return;
+
+    pool.query(
+        `
+        INSERT INTO statistics (day, shared, given) VALUES (CURRENT_DATE, $1, $2)
+        ON CONFLICT (day) DO UPDATE SET 
+            shared = statistics.shared + EXCLUDED.shared,
+            given = statistics.given + EXCLUDED.given;
+        `,
+        [shared, given]
+    )
+
+    tracked.shared = 0;
+    tracked.given = 0;
+}, 10 * 60 * 1000);

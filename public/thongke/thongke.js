@@ -6,7 +6,7 @@ new Chart(ctx, {
         labels : ["1", "2", "3", "4", "5"],
         datasets : [
             {
-                label : "books shared",
+                label : "số sách đã đăng",
                 data : [10, 20, 30, 25, 40],
                 borderColor : "blue",
                 backgroundColor : "lightblue",
@@ -14,7 +14,7 @@ new Chart(ctx, {
                 tension : 0
             },
             {
-                label : "books sent",
+                label : "số sách đã nhận",
                 data : [5, 15, 35, 20, 30],
                 borderColor : "green",
                 backgroundColor : "lightgreen",
@@ -40,7 +40,9 @@ new Chart(ctx, {
 })
 
 async function getData() {
-    const response = await fetch(`/api/stats`);
+    const response = await fetch(`/api/stats`, {
+        method : 'POST'
+    });
 
     if (response.ok)
     {
