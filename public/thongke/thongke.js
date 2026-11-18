@@ -40,7 +40,7 @@ new Chart(ctx, {
 })
 
 async function getData() {
-    const response = await fetch(`api/stats`);
+    const response = await fetch(`/api/stats`);
 
     if (response.ok)
     {
