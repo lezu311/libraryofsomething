@@ -584,6 +584,9 @@ function showDetail(kind, r) {
                 );
             });
 
+            const smth = el("p");
+            smth.textContent = "lol skibidi test haha"
+
             const decline = el("button", "btn-decline", "Từ chối");
             decline.type = "button";
             decline.addEventListener("click", () =>
