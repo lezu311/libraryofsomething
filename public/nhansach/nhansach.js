@@ -413,7 +413,7 @@ function bodyNodes(kind, r) {
                 break;
             case "accepted":
                 nodes.push(para("Bạn đã đồng ý tặng cuốn sách ", book, " cho ", who, "."));
-                if (r.pickup && r.pickup == "Phòng Thư Viện") nodes.push(para("Khi đem sách đến thư viện nhớ ghi tên đăng nhập của mình và người nhận nhé!"));
+                if (r.pickup && r.pickup == "Phòng Thư viện") nodes.push(para("Khi đem sách đến thư viện nhớ ghi tên đăng nhập của mình và người nhận nhé!"));
                 if (r.pickup) nodes.push(pickupCard("Nơi trao sách", r.pickup));
                 break;
             case "declined":
@@ -435,8 +435,7 @@ function bodyNodes(kind, r) {
             break;
         case "accepted":
             nodes.push(para(owner, " đã đồng ý tặng bạn cuốn sách ", book, ". Hãy đến lấy sách đúng nơi bên dưới."));
-            console.log(r.pickup);
-            if (r.pickup && r.pickup == "Phòng Thư Viện") nodes.push(para("Hãy nhớ tên của mình và người nhận khi đến nhận sách tại thư viện nhé!"));
+            if (r.pickup && r.pickup == "Phòng Thư viện") nodes.push(para("Hãy nhớ tên của mình và người nhận khi đến nhận sách tại thư viện nhé!"));
             if (r.pickup) nodes.push(pickupCard("Đến lấy sách tại", r.pickup));
             break;
         case "declined":
