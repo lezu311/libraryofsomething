@@ -408,7 +408,8 @@ function bodyNodes(kind, r) {
             case "pending":
                 nodes.push(
                     para(who, " muốn nhận cuốn sách ", book, " của bạn."),
-                    para("Nếu đồng ý, hãy chọn nơi trao sách bên dưới. Sau khi bạn bấm Đồng ý, sách sẽ bị xoá khỏi web.")
+                    para("Nếu đồng ý, hãy chọn nơi trao sách bên dưới. Sau khi bạn bấm Đồng ý, sách sẽ bị xoá khỏi web."),
+                    para("Khi đem sách đến thư viện nhớ ghi tên đăng nhập của mình và người nhận nhé!")
                 );
                 break;
             case "accepted":
@@ -583,9 +584,6 @@ function showDetail(kind, r) {
                     choice
                 );
             });
-
-            const smth = el("p");
-            smth.textContent = "lol skibidi test haha"
 
             const decline = el("button", "btn-decline", "Từ chối");
             decline.type = "button";
